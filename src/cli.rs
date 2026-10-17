@@ -1,9 +1,12 @@
 use clap::{Parser, Subcommand};
 
+/// A declarative environment manager
 #[derive(Debug, Parser)]
 pub struct Cli {
+    /// Show debug log
     #[arg(short, long)]
     pub verbose: bool,
+    /// Do not use cache
     #[arg(short, long)]
     pub force: bool,
     #[clap(subcommand)]
@@ -16,9 +19,9 @@ pub enum SubCommand {
     Check,
     /// List all env
     List,
-    /// Enter shell
+    /// Enter shell with env
     Shell,
-    /// Run program
+    /// Run program with env
     Run(RunArgs),
 }
 
