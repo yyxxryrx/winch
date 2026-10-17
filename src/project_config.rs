@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use std::collections::HashMap;
 
 #[derive(Debug, Deserialize)]
 pub struct Vcpkg {
@@ -28,4 +29,6 @@ pub struct Toolchain {
 pub struct Config {
     pub toolchain: Option<Toolchain>,
     pub dev: Option<Dev>,
+    #[serde(default)]
+    pub env: HashMap<String, String>,
 }

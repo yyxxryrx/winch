@@ -117,7 +117,11 @@ fn load_pure_environment(force: bool) -> Result<crate::env::EnvDelta, AppError> 
 
     let config_text = std::fs::read_to_string(config_path)?;
     let config = toml::from_str::<crate::project_config::Config>(&config_text)?;
-    let delta = crate::toolchain::resolve(&config)?;
+    let mut delta = crate::toolchain::resolve(&config)?;
+
+    for (k, v) in config.env.iter() {
+        delta.set(k, v);
+    }
 
     let cached = CacheFile {
         version: cache::FORMAT_VERSION,

@@ -11,6 +11,7 @@
 - 按项目指定 MSVC 版本和平台,自动调用 `vcvarsall.bat` 组合环境
 - 可选启用 vcpkg,指定 triplet
 - 可选按版本要求选择 JDK
+- 通过 `[env]` 覆盖自定义环境变量
 - 用 `winch shell` / `winch run` 在准备好的环境中启动 shell 或程序
 - 把解析结果缓存到 `.winch/cache.toml`,减少重复解析
 - 导出 bash、PowerShell、Nushell 可用的环境脚本
@@ -47,6 +48,9 @@ platform = "x64"
 [dev.vcpkg]
 enable = true
 triplet = "x64-windows"
+
+[env]
+FOO = "bar"
 ```
 
 字段说明:
@@ -58,8 +62,24 @@ triplet = "x64-windows"
 | `toolchain.java` | JDK 的 semver 版本要求,如 `17`、`>=17, <21` |
 | `dev.vcpkg.enable` | 是否启用 vcpkg,默认 `false` |
 | `dev.vcpkg.triplet` | vcpkg triplet,如 `x64-windows` |
+| `env` | 自定义环境变量,键和值都必须是字符串 |
 
 所有段都是可选的,只写需要的部分即可;但一旦写了某个工具链,它内部的字段需要完整。
+
+### 自定义环境变量
+
+`[env]` 在工具链解析之后应用,同名变量会覆盖工具链生成的值:
+
+```toml
+[env]
+FOO = "bar"
+```
+
+几点注意:
+
+- 值是字面量,不支持 `%VAR%` 或 `${env:VAR}` 之类的变量展开
+- 值需要是 TOML 字符串,`PORT = 8080` 这种写法会解析失败,应写成 `PORT = "8080"`
+- 如果覆盖 `Path`、`LIB`、`INCLUDE` 这类变量,会**整体替换**工具链拼好的结果,而不是追加
 
 ### 命令
 
@@ -111,7 +131,7 @@ args = ["-NoLogo"]
 
 - 缓存位于 `.winch/cache.toml`,以 `winch.toml` 的 SHA-256 作为键
 - 缓存里是解析后的绝对路径,属于本机数据,建议把 `/.winch/` 加入项目自己的 `.gitignore`
-- 修改 `winch.toml` 会自动重建缓存;工具链升级或移动后请使用 `--force`
+- 修改 `winch.toml`(包括 `[env]`)会自动重建缓存;工具链升级或移动后请使用 `--force`
 - 缓存格式带版本号,格式不匹配时会自动重建
 
 ### 导出
@@ -129,6 +149,7 @@ bash 导出会把 Windows 路径转换成 `/c/...` 形式,适合 Git Bash / MSYS
 - 仅支持 Windows
 - clang、gcc、MSYS2 目前只在 `list` 中检测,还没有注入环境
 - `check` 目前只做基础的路径存在性检查,其他检查还在补充
+- `[env]` 不支持变量展开和追加,同名变量会整体覆盖
 - 缓存只根据 `winch.toml` 判断是否有效,不会自动感知工具链变化
 - 测试覆盖有限,接口也在调整中
 
