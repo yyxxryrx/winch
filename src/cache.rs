@@ -80,7 +80,7 @@ mod tests {
             .unwrap()
             .as_nanos();
         std::env::temp_dir()
-            .join(format!("env-mgr-{}-{name}-{unique}", std::process::id()))
+            .join(format!("winch-{}-{name}-{unique}", std::process::id()))
             .join("cache.toml")
     }
 

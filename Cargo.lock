@@ -225,28 +225,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "env-mgr"
-version = "0.1.0"
-dependencies = [
- "clap",
- "colored",
- "dirs",
- "env_logger",
- "hex",
- "json",
- "log",
- "regex",
- "semver",
- "serde",
- "sha2",
- "thiserror",
- "toml",
- "walkdir",
- "windows",
- "winreg",
-]
-
-[[package]]
 name = "env_filter"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -659,6 +637,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
  "windows-sys",
+]
+
+[[package]]
+name = "winch"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "colored",
+ "dirs",
+ "env_logger",
+ "hex",
+ "json",
+ "log",
+ "regex",
+ "semver",
+ "serde",
+ "sha2",
+ "thiserror",
+ "toml",
+ "walkdir",
+ "windows",
+ "winreg",
 ]
 
 [[package]]
