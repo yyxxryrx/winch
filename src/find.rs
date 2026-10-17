@@ -1,24 +1,5 @@
-use crate::SPLITTER;
+use crate::version::{self, GetVersionResult};
 use std::path::{Path, PathBuf};
-
-pub fn find_tool_from_dir<P>(name: &str, path: P) -> Option<PathBuf>
-where
-    P: AsRef<Path>,
-{
-    path.as_ref()
-        .read_dir()
-        .map(|mut r| r.find(|e| e.as_ref().is_ok_and(|s| s.file_name() == name)))
-        .map(|e| e.and_then(|e| e.map_or(None, |e| Some(e.path()))))
-        .unwrap_or_default()
-}
-
-pub fn find_tool(name: &str) -> Vec<PathBuf> {
-    let path_var = std::env::var("Path").unwrap_or_default();
-    path_var
-        .split(SPLITTER)
-        .filter_map(|s| find_tool_from_dir(name, s))
-        .collect()
-}
 
 #[derive(Debug)]
 pub struct Tool {
@@ -26,46 +7,54 @@ pub struct Tool {
     pub version: semver::Version,
 }
 
-pub fn find_clang_with_version() -> crate::version::GetVersionResult<Vec<Tool>> {
-    find_tool("clang.exe")
-        .into_iter()
-        .map(|p| {
-            crate::version::get_clang_version(&p).map(|v| Tool {
-                version: v,
-                path: p,
-            })
+fn find_tool_from_dir(dir: &Path, name: &str) -> Option<PathBuf> {
+    std::fs::read_dir(dir)
+        .ok()?
+        .filter_map(Result::ok)
+        .find(|entry| entry.file_name() == name)
+        .map(|entry| entry.path())
+}
+
+pub fn find_tool(name: &str) -> Vec<PathBuf> {
+    std::env::var_os("Path")
+        .map(|paths| {
+            std::env::split_paths(&paths)
+                .filter_map(|dir| find_tool_from_dir(&dir, name))
+                .collect()
         })
+        .unwrap_or_default()
+}
+
+fn find_with_version(
+    name: &str,
+    get_version: fn(&Path) -> GetVersionResult<semver::Version>,
+) -> GetVersionResult<Vec<Tool>> {
+    find_tool(name)
+        .into_iter()
+        .map(|path| get_version(&path).map(|version| Tool { version, path }))
         .collect()
 }
 
-pub fn find_gcc_with_version() -> crate::version::GetVersionResult<Vec<Tool>> {
-    find_tool("gcc.exe")
-        .into_iter()
-        .map(|p| {
-            crate::version::get_gcc_version(&p).map(|v| Tool {
-                version: v,
-                path: p,
-            })
-        })
-        .collect()
+pub fn find_clang_with_version() -> GetVersionResult<Vec<Tool>> {
+    find_with_version("clang.exe", version::get_clang_version)
 }
 
-pub fn find_jdk_with_version() -> crate::version::GetVersionResult<Vec<Tool>> {
-    find_tool("java.exe")
-        .into_iter()
-        .map(|p| {
-            crate::version::get_jdk_version(&p).map(|v| Tool {
-                version: v,
-                path: p,
-            })
-        })
-        .collect()
+pub fn find_gcc_with_version() -> GetVersionResult<Vec<Tool>> {
+    find_with_version("gcc.exe", version::get_gcc_version)
+}
+
+pub fn find_jdk_with_version() -> GetVersionResult<Vec<Tool>> {
+    find_with_version("java.exe", version::get_jdk_version)
 }
 
 pub fn find_vcpkg() -> Option<PathBuf> {
-    std::env::var("VCPKG_ROOT")
-        .map_or(None, |v| Some(PathBuf::from(v)))
-        .or(find_tool("vcpkg.exe")
-            .first()
-            .and_then(|p| p.parent().map(|p| p.to_path_buf())))
+    std::env::var_os("VCPKG_ROOT")
+        .map(PathBuf::from)
+        .filter(|path| path.is_dir())
+        .or_else(|| {
+            find_tool("vcpkg.exe")
+                .first()
+                .and_then(|path| path.parent())
+                .map(Path::to_path_buf)
+        })
 }
