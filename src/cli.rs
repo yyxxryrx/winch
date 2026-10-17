@@ -1,4 +1,5 @@
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
+use std::path::PathBuf;
 
 /// A declarative environment manager
 #[derive(Debug, Parser)]
@@ -17,6 +18,8 @@ pub struct Cli {
 pub enum SubCommand {
     /// Check the env
     Check,
+    /// Export env
+    Export(ExportArgs),
     /// List all env
     List,
     /// Enter shell with env
@@ -31,4 +34,31 @@ pub struct RunArgs {
     pub program: String,
     #[arg(required = false)]
     pub args: Vec<String>,
+}
+
+#[derive(Debug, Parser)]
+pub struct ExportArgs {
+    /// The shell to export the script
+    #[clap(long)]
+    pub shell: SupportedShell,
+    #[clap(short, long)]
+    pub output: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum SupportedShell {
+    Bash,
+    #[clap(name = "powershell")]
+    PowerShell,
+    Nu,
+}
+
+impl SupportedShell {
+    pub fn extension(&self) -> &'static str {
+        match self {
+            SupportedShell::Bash => ".sh",
+            SupportedShell::PowerShell => ".ps1",
+            SupportedShell::Nu => ".nu",
+        }
+    }
 }

@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io::{self, BufReader, Read, Write};
 use std::path::Path;
 
-pub const FORMAT_VERSION: u32 = 1;
+pub const FORMAT_VERSION: u32 = 2;
 pub const CACHE_PATH: &str = ".winch/cache.toml";
 
 #[derive(Debug, Serialize, Deserialize)]

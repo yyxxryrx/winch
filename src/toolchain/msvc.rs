@@ -22,6 +22,14 @@ pub(super) fn apply(config: &Msvc, delta: &mut EnvDelta) -> LoadResult<()> {
 
     let vars = msvc::get_msvc_env(&target.installed_path, &config.platform)?;
     info!("Load msvc {}", target.version);
-    delta.merge_prepend(vars);
+
+    const PREPEND_VARS: [&str; 5] = ["Path", "LIB", "INCLUDE", "LIBPATH", "EXTERNAL_INCLUDE"];
+    for (key, value) in vars {
+        if PREPEND_VARS.contains(&key.as_str()) {
+            delta.prepend(key, value);
+        } else {
+            delta.set(key, value);
+        }
+    }
     Ok(())
 }

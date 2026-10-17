@@ -9,6 +9,7 @@ use crate::version;
 use colored::Colorize;
 use log::{debug, error, info};
 use std::collections::HashMap;
+use std::io::Write;
 use std::path::Path;
 use std::process::Command;
 
@@ -43,6 +44,29 @@ pub fn run(cli: Cli) -> Result<(), AppError> {
             println!("{}", "Check successfully completed".bright_green());
             Ok(())
         }
+        SubCommand::Export(args) => {
+            let delta = load_pure_environment(cli.force)?;
+            let script = match args.shell {
+                crate::cli::SupportedShell::Nu => crate::export::export_nu(&delta),
+                crate::cli::SupportedShell::Bash => crate::export::export_bash(&delta),
+                crate::cli::SupportedShell::PowerShell => crate::export::export_powershell(&delta),
+            };
+            let dir = Path::new(".winch");
+            if !std::fs::exists(dir)? {
+                std::fs::create_dir(dir)?;
+            }
+            let output = args
+                .output
+                .unwrap_or_else(|| dir.join(format!("env{}", args.shell.extension())));
+            if output.as_os_str() == "-" {
+                print!("{script}");
+                return Ok(());
+            }
+            info!("Save to {}", output.display());
+            let mut file = std::fs::File::create(output)?;
+            file.write_all(script.as_bytes())?;
+            Ok(())
+        }
     }
 }
 
@@ -63,19 +87,23 @@ pub fn report(err: &AppError) {
 }
 
 fn load_environment(force: bool) -> Result<HashMap<String, String>, AppError> {
+    let mut envs = std::env::vars().collect::<HashMap<_, _>>();
+    load_pure_environment(force)?.apply_to(&mut envs);
+    Ok(envs)
+}
+
+fn load_pure_environment(force: bool) -> Result<crate::env::EnvDelta, AppError> {
     let config_path = Path::new("winch.toml");
     if !config_path.exists() {
         return Err(AppError::NoConfig);
     }
     let hash = cache::hash_file(config_path)?;
-    let mut envs = std::env::vars().collect::<HashMap<_, _>>();
 
     if !force && let Some(cached) = cache::read(Path::new(cache::CACHE_PATH)) {
         if cached.matches(&hash) {
             debug!("Load from cache file");
-            cached.env.apply_to(&mut envs);
             info!("Load env from cache file successfully");
-            return Ok(envs);
+            return Ok(cached.env);
         }
         debug!("Cache not matched, will reload env");
     }
@@ -83,18 +111,17 @@ fn load_environment(force: bool) -> Result<HashMap<String, String>, AppError> {
     let config_text = std::fs::read_to_string(config_path)?;
     let config = toml::from_str::<crate::project_config::Config>(&config_text)?;
     let delta = crate::toolchain::resolve(&config)?;
-    delta.apply_to(&mut envs);
 
     let cached = CacheFile {
         version: cache::FORMAT_VERSION,
         hash,
-        env: delta,
+        env: delta.clone(),
     };
     if let Err(e) = cache::write(Path::new(cache::CACHE_PATH), &cached) {
         error!("Failed to save cache file: {e}");
     }
 
-    Ok(envs)
+    Ok(delta)
 }
 
 fn list() {

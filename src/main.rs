@@ -3,6 +3,7 @@ mod cache;
 mod check;
 mod cli;
 mod env;
+mod export;
 mod find;
 mod msvc;
 mod msys2;

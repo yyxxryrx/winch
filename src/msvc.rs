@@ -167,6 +167,7 @@ pub fn get_msvc_env(
     let command = format!("call vcvarsall.bat {platform} && echo {MARKER} && set");
     let output = std::process::Command::new("cmd.exe")
         .current_dir(&build_dir)
+        .env("Path", ";")
         .args(["/C", command.as_str()])
         .output()?;
     if !output.status.success() {
@@ -174,7 +175,7 @@ pub fn get_msvc_env(
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    Ok(stdout
+    let mut env = stdout
         .lines()
         .map(str::trim)
         .skip_while(|line| *line != MARKER)
@@ -183,7 +184,19 @@ pub fn get_msvc_env(
         .filter_map(|line| line.split_once('='))
         .filter(|(key, _)| MSVC_VARS.contains(key))
         .map(|(key, value)| (key.to_string(), value.to_string()))
-        .collect())
+        .collect::<HashMap<_, _>>();
+
+    const PATH_LIST_VARS: [&str; 5] = ["Path", "LIB", "INCLUDE", "LIBPATH", "EXTERNAL_INCLUDE"];
+    for key in PATH_LIST_VARS {
+        if let Some(value) = env.get_mut(key) {
+            *value = value
+                .split(';')
+                .filter(|part| !part.is_empty())
+                .collect::<Vec<_>>()
+                .join(";");
+        }
+    }
+    Ok(env)
 }
 
 #[cfg(test)]

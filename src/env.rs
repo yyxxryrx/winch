@@ -26,12 +26,6 @@ impl EnvDelta {
             .or_insert_with(|| value.to_string());
     }
 
-    pub fn merge_prepend(&mut self, envs: impl IntoIterator<Item = (String, String)>) {
-        for (key, value) in envs {
-            self.prepend(key, value);
-        }
-    }
-
     pub fn apply_to(&self, base: &mut HashMap<String, String>) {
         for (key, value) in &self.set {
             base.insert(key.clone(), value.clone());
@@ -84,15 +78,5 @@ mod tests {
         assert_eq!(base["Path"], "new;old");
         assert_eq!(base["JAVA_HOME"], "new-jdk");
         assert_eq!(base["VCPKG_ROOT"], "vcpkg");
-    }
-
-    #[test]
-    fn merge_prepend_keeps_order() {
-        let mut delta = EnvDelta::default();
-        delta.merge_prepend([
-            ("Path".to_string(), "first".to_string()),
-            ("Path".to_string(), "second".to_string()),
-        ]);
-        assert_eq!(delta.prepend["Path"], "second;first");
     }
 }
