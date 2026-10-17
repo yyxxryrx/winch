@@ -40,7 +40,14 @@ pub fn run(cli: Cli) -> Result<(), AppError> {
             run_program(&args, &envs)
         }
         SubCommand::Check => {
-            load_environment(cli.force)?;
+            let delta = load_pure_environment(cli.force)?;
+            if let Err(e) = crate::check::check_delta(&delta) {
+                match e {
+                    crate::check::error::CheckError::NotExists(p) => {
+                        error!("Path was not exists ... {p}")
+                    }
+                }
+            }
             println!("{}", "Check successfully completed".bright_green());
             Ok(())
         }
