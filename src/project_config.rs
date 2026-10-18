@@ -81,10 +81,53 @@ pub struct Toolchain {
     pub java: Option<String>,
 }
 
+#[derive(Debug, Default, Deserialize)]
+pub struct EnvConfig {
+    #[serde(flatten)]
+    pub set: HashMap<String, String>,
+    #[serde(default)]
+    pub prepend: HashMap<String, String>,
+    #[serde(default)]
+    pub append: HashMap<String, String>,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub toolchain: Option<Toolchain>,
     pub dev: Option<Dev>,
     #[serde(default)]
-    pub env: HashMap<String, String>,
+    pub env: EnvConfig,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn env_keeps_plain_values_as_set() {
+        let config: Config = toml::from_str("[env]\nFOO = \"bar\"\n").unwrap();
+        assert_eq!(config.env.set["FOO"], "bar");
+        assert!(config.env.prepend.is_empty());
+        assert!(config.env.append.is_empty());
+    }
+
+    #[test]
+    fn env_parses_prepend_and_append() {
+        let config: Config = toml::from_str(
+            r#"
+[env]
+FOO = "bar"
+
+[env.prepend]
+PATH = "C:\\prepend"
+
+[env.append]
+PATH = "C:\\append"
+"#,
+        )
+        .unwrap();
+        assert_eq!(config.env.set["FOO"], "bar");
+        assert_eq!(config.env.prepend["PATH"], r"C:\prepend");
+        assert_eq!(config.env.append["PATH"], r"C:\append");
+    }
 }

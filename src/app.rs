@@ -156,8 +156,14 @@ fn load_pure_environment_with(
 
     let mut delta = crate::toolchain::resolve(config)?;
 
-    for (k, v) in &config.env {
+    for (k, v) in &config.env.set {
         delta.set(k, v);
+    }
+    for (k, v) in &config.env.prepend {
+        delta.prepend(k, v);
+    }
+    for (k, v) in &config.env.append {
+        delta.append(k, v);
     }
 
     let cached = CacheFile {

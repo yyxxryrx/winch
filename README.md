@@ -12,7 +12,7 @@
 - 可选启用 vcpkg,指定 triplet
 - 可选注入 MSYS2 环境,选择 MSYS / MinGW 类型
 - 可选按版本要求选择 JDK
-- 通过 `[env]` 覆盖自定义环境变量
+- 通过 `[env]` 覆盖自定义环境变量,或用 `[env.prepend]` / `[env.append]` 在值首尾追加
 - 用 `winch shell` / `winch run` 在准备好的环境中启动 shell 或程序
 - 用 `winch env` 打印加载后的完整环境变量
 - 把解析结果缓存到 `.winch/cache.toml`,减少重复解析
@@ -86,7 +86,7 @@ FOO = "bar"
 | `toolchain.java` | JDK 的 semver 版本要求,如 `17`、`>=17, <21` |
 | `dev.vcpkg.enable` | 是否启用 vcpkg,默认 `false` |
 | `dev.vcpkg.triplet` | vcpkg triplet,如 `x64-windows` |
-| `env` | 自定义环境变量,键和值都必须是字符串 |
+| `env` | 自定义环境变量,键和值都必须是字符串;`env.prepend` / `env.append` 用于在现有值首尾追加 |
 
 所有段都是可选的,只写需要的部分即可;但一旦写了某个工具链,它内部的字段需要完整。
 
@@ -102,18 +102,26 @@ type = "ucrt64"
 
 ### 自定义环境变量
 
-`[env]` 在工具链解析之后应用,同名变量会覆盖工具链生成的值:
+`[env]` 在工具链解析之后应用,同名变量会覆盖工具链生成的值。需要保留现有值并在开头或结尾追加时,使用 `[env.prepend]` 或 `[env.append]`:
 
 ```toml
 [env]
 FOO = "bar"
+
+[env.prepend]
+PATH = "C:\\tools\\bin"
+
+[env.append]
+PATH = "C:\\other\\bin"
 ```
 
 几点注意:
 
 - 值是字面量,不支持 `%VAR%` 或 `${env:VAR}` 之类的变量展开
 - 值需要是 TOML 字符串,`PORT = 8080` 这种写法会解析失败,应写成 `PORT = "8080"`
-- 如果覆盖 `Path`、`LIB`、`INCLUDE` 这类变量,会 **整体替换**工具链拼好的结果,而不是追加
+- `[env]` 会 **整体替换**变量,包括 `Path`、`LIB`、`INCLUDE`;`[env.prepend]` / `[env.append]` 则用 `;` 拼接在现有值的开头或结尾
+- 同一个变量可以同时出现在 `[env.prepend]` 和 `[env.append]`,会先应用 prepend 再应用 append
+- 同一个变量不要同时写在 `[env]` 和修改段中;修改段会覆盖 `[env]` 的声明
 
 ### 命令
 
@@ -190,7 +198,7 @@ bash 导出会把 Windows 路径转换成 `/c/...` 形式,适合 Git Bash / MSYS
 - 仅支持 Windows
 - clang、gcc 目前只在 `list` 中检测,还没有注入环境
 - `check` 的检查项还比较基础:工具链是否可用、Path 目录是否存在
-- `[env]` 不支持变量展开和追加,同名变量会整体覆盖
+- `[env]` 不支持变量展开;追加请使用 `[env.prepend]` / `[env.append]`
 - 缓存只根据 `winch.toml` 判断是否有效,不会自动感知工具链变化
 - 测试覆盖有限,接口也在调整中
 

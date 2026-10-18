@@ -41,6 +41,19 @@ pub fn export_bash(env_delta: &EnvDelta) -> String {
             convert_windows_to_posix(value)
         ));
     }
+    for (key, value) in env_delta.append.iter() {
+        if key == "Path" {
+            bash.push_str(&format!(
+                "export PATH=\"$PATH:{}\"\n",
+                convert_windows_to_posix(value)
+            ));
+            continue;
+        }
+        bash.push_str(&format!(
+            "export {key}=\"${key}:{}\"\n",
+            convert_windows_to_posix(value)
+        ));
+    }
     bash
 }
 
@@ -53,6 +66,10 @@ pub fn export_powershell(env_delta: &EnvDelta) -> String {
 
     for (key, value) in env_delta.prepend.iter() {
         powershell.push_str(&format!("${{env:{key}}} = \"{value};${{env:{key}}}\"\n"));
+    }
+
+    for (key, value) in env_delta.append.iter() {
+        powershell.push_str(&format!("${{env:{key}}} = \"${{env:{key}}};{value}\"\n"));
     }
 
     powershell
@@ -74,6 +91,13 @@ pub fn export_nu(env_delta: &EnvDelta) -> String {
     for (key, value) in env_delta.prepend.iter() {
         nu.push_str(&format!(
             "$env.\"{key}\" = {:?} | append ($env | get -o \"{key}\")\n",
+            value.split(';').collect::<Vec<_>>()
+        ));
+    }
+
+    for (key, value) in env_delta.append.iter() {
+        nu.push_str(&format!(
+            "$env.\"{key}\" = ($env | get -o \"{key}\") | append {:?}\n",
             value.split(';').collect::<Vec<_>>()
         ));
     }

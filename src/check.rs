@@ -46,8 +46,13 @@ pub mod env_delta {
     use std::path::Path;
 
     fn check_path_exists(delta: &EnvDelta) -> Result<(), error::CheckError> {
-        if let Some(path) = delta.prepend.get("Path").map(|p| p.split(';')) {
-            for p in path {
+        let paths = delta
+            .prepend
+            .get("Path")
+            .into_iter()
+            .chain(delta.append.get("Path"));
+        for path in paths {
+            for p in path.split(';') {
                 if p.is_empty() {
                     continue;
                 }
