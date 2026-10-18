@@ -81,17 +81,17 @@ FOO = "bar"
 
 字段说明:
 
-| 字段 | 说明 |
-| --- | --- |
-| `pure` | 是否清空继承的环境变量,只保留解析结果,默认 `false` |
-| `toolchain.msvc.version` | Visual Studio 版本,最多 4 段。省略的段按通配处理,例如 `17` 匹配任意 `17.x` |
-| `toolchain.msvc.platform` | 传给 `vcvarsall.bat` 的平台,如 `x64`、`x86`、`arm64` |
-| `toolchain.msys2.enable` | 是否启用 MSYS2 环境,默认 `false` |
-| `toolchain.msys2.type` | MSYS2 环境类型:`ucrt64`(默认)、`mingw64`、`mingw32`、`clang64`、`clangarm64`、`msys2` |
-| `toolchain.java` | JDK 的 semver 版本要求,如 `17`、`>=17, <21` |
-| `dev.vcpkg.enable` | 是否启用 vcpkg,默认 `false` |
-| `dev.vcpkg.triplet` | vcpkg triplet,如 `x64-windows` |
-| `env` | 自定义环境变量,键和值都必须是字符串;`env.prepend` / `env.append` 用于在现有值首尾追加 |
+| 字段                      | 说明                                                                                  |
+|---------------------------|---------------------------------------------------------------------------------------|
+| `pure`                    | 是否清空继承的环境变量,只保留解析结果,默认 `false`                                    |
+| `toolchain.msvc.version`  | Visual Studio 版本,最多 4 段。省略的段按通配处理,例如 `17` 匹配任意 `17.x`            |
+| `toolchain.msvc.platform` | 传给 `vcvarsall.bat` 的平台,如 `x64`、`x86`、`arm64`                                  |
+| `toolchain.msys2.enable`  | 是否启用 MSYS2 环境,默认 `false`                                                      |
+| `toolchain.msys2.type`    | MSYS2 环境类型:`ucrt64`(默认)、`mingw64`、`mingw32`、`clang64`、`clangarm64`、`msys2` |
+| `toolchain.java`          | JDK 的 semver 版本要求,如 `17`、`>=17, <21`                                           |
+| `dev.vcpkg.enable`        | 是否启用 vcpkg,默认 `false`                                                           |
+| `dev.vcpkg.triplet`       | vcpkg triplet,如 `x64-windows`                                                        |
+| `env`                     | 自定义环境变量,键和值都必须是字符串;`env.prepend` / `env.append` 用于在现有值首尾追加 |
 
 所有段都是可选的,只写需要的部分即可;但一旦写了某个工具链,它内部的字段需要完整。
 
