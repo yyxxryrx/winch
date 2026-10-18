@@ -18,9 +18,8 @@ impl EnvObj {
     }
 }
 
-fn env_to_string(envs: &[EnvObj]) -> String {
-    envs.iter()
-        .map(|env| env.value.clone())
+pub(crate) fn env_to_string<'a>(envs: impl Iterator<Item = &'a EnvObj>) -> String {
+    envs.map(|env| env.value.clone())
         .collect::<Vec<_>>()
         .join(";")
 }
@@ -70,21 +69,23 @@ impl EnvDelta {
             base.clear();
         }
         for (key, value) in &self.set {
-            base.insert(key.clone(), env_to_string(value));
+            base.insert(key.clone(), env_to_string(value.iter()));
         }
         for (key, value) in &self.prepend {
             match base.get_mut(key) {
-                Some(existing) => *existing = format!("{};{existing}", env_to_string(value)),
+                Some(existing) => {
+                    *existing = format!("{};{existing}", env_to_string(value.iter().rev()))
+                }
                 None => {
-                    base.insert(key.clone(), env_to_string(value));
+                    base.insert(key.clone(), env_to_string(value.iter().rev()));
                 }
             }
         }
         for (key, value) in &self.append {
             match base.get_mut(key) {
-                Some(existing) => *existing = format!("{existing};{}", env_to_string(value)),
+                Some(existing) => *existing = format!("{existing};{}", env_to_string(value.iter())),
                 None => {
-                    base.insert(key.clone(), env_to_string(value));
+                    base.insert(key.clone(), env_to_string(value.iter()));
                 }
             }
         }
@@ -100,7 +101,7 @@ mod tests {
         let mut delta = EnvDelta::default();
         delta.prepend("Path", EnvObj::new("a", "test"));
         delta.prepend("Path", EnvObj::new("b", "test"));
-        assert_eq!(env_to_string(&delta.prepend["Path"]), "b;a");
+        assert_eq!(env_to_string(delta.prepend["Path"].iter().rev()), "b;a");
     }
 
     #[test]
@@ -108,7 +109,7 @@ mod tests {
         let mut delta = EnvDelta::default();
         delta.append("Path", EnvObj::new("a", "test"));
         delta.append("Path", EnvObj::new("b", "test"));
-        assert_eq!(env_to_string(&delta.append["Path"]), "a;b");
+        assert_eq!(env_to_string(delta.append["Path"].iter()), "a;b");
     }
 
     #[test]
@@ -117,7 +118,7 @@ mod tests {
         delta.prepend("JAVA_HOME", EnvObj::new("old", "test"));
         delta.set("JAVA_HOME", EnvObj::new("new", "test"));
         assert!(delta.prepend.is_empty());
-        assert_eq!(env_to_string(&delta.set["JAVA_HOME"]), "new");
+        assert_eq!(env_to_string(delta.set["JAVA_HOME"].iter()), "new");
     }
 
     #[test]
@@ -126,7 +127,7 @@ mod tests {
         delta.append("JAVA_HOME", EnvObj::new("old", "test"));
         delta.set("JAVA_HOME", EnvObj::new("new", "test"));
         assert!(delta.append.is_empty());
-        assert_eq!(env_to_string(&delta.set["JAVA_HOME"]), "new");
+        assert_eq!(env_to_string(delta.set["JAVA_HOME"].iter()), "new");
     }
 
     #[test]
@@ -134,8 +135,8 @@ mod tests {
         let mut delta = EnvDelta::default();
         delta.prepend("Path", EnvObj::new("first", "test"));
         delta.append("Path", EnvObj::new("last", "test"));
-        assert_eq!(env_to_string(&delta.prepend["Path"]), "first");
-        assert_eq!(env_to_string(&delta.append["Path"]), "last");
+        assert_eq!(env_to_string(delta.prepend["Path"].iter()), "first");
+        assert_eq!(env_to_string(delta.append["Path"].iter()), "last");
     }
 
     #[test]

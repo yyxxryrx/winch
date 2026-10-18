@@ -73,6 +73,7 @@ pub fn write(path: &Path, cache: &CacheFile) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::env::{env_to_string, EnvObj};
 
     fn temp_path(name: &str) -> std::path::PathBuf {
         let unique = std::time::SystemTime::now()
@@ -86,9 +87,9 @@ mod tests {
 
     fn sample_cache(hash: &str) -> CacheFile {
         let mut env = EnvDelta::default();
-        env.set("JAVA_HOME", "C:/jdk");
-        env.prepend("Path", "C:/jdk/bin");
-        env.append("Path", "C:/tools/bin");
+        env.set("JAVA_HOME", EnvObj::new("C:/jdk", "java"));
+        env.prepend("Path", EnvObj::new("C:/jdk/bin", "java"));
+        env.append("Path", EnvObj::new("C:/tools/bin", "java"));
         env.pure = true;
         CacheFile {
             version: FORMAT_VERSION,
@@ -106,9 +107,9 @@ mod tests {
         let loaded = read(&path).unwrap();
         assert!(loaded.matches("abc123"));
         assert!(!loaded.matches("other"));
-        assert_eq!(loaded.env.set["JAVA_HOME"], "C:/jdk");
-        assert_eq!(loaded.env.prepend["Path"], "C:/jdk/bin");
-        assert_eq!(loaded.env.append["Path"], "C:/tools/bin");
+        assert_eq!(env_to_string(loaded.env.set["JAVA_HOME"].iter()), "C:/jdk");
+        assert_eq!(env_to_string(loaded.env.prepend["Path"].iter().rev()), "C:/jdk/bin");
+        assert_eq!(env_to_string(loaded.env.append["Path"].iter()), "C:/tools/bin");
         assert!(loaded.env.pure);
 
         std::fs::remove_dir_all(path.parent().unwrap()).unwrap();

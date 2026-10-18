@@ -11,6 +11,10 @@ fn find_jdk(requirement: &str) -> LoadResult<find::Tool> {
         .ok_or_else(|| LoadError::CannotFind("target java".to_string()))
 }
 
+fn env(value: impl Into<String>) -> crate::env::EnvObj {
+    crate::env::EnvObj::new(value.into(), "java")
+}
+
 pub(crate) fn check(requirement: &str) -> LoadResult<find::Tool> {
     find_jdk(requirement)
 }
@@ -29,7 +33,7 @@ pub(super) fn apply(requirement: &str, delta: &mut EnvDelta) -> LoadResult<()> {
     debug!("Get JAVA_HOME ... {}", java_home.display());
 
     info!("Load java");
-    delta.set("JAVA_HOME", java_home.to_string_lossy());
-    delta.prepend("Path", bin.to_string_lossy());
+    delta.set("JAVA_HOME", env(java_home.to_string_lossy()));
+    delta.prepend("Path", env(bin.to_string_lossy()));
     Ok(())
 }
