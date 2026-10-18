@@ -27,7 +27,7 @@ pub fn render(
     for key in keys {
         let before_value = find_value(before, key);
         let after_value = find_value(after, key);
-        if before_value == after_value {
+        if before_value == after_value && !delta.set.contains_key(key) {
             continue;
         }
 

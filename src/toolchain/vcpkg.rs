@@ -28,6 +28,17 @@ pub(super) fn apply(config: &Vcpkg, delta: &mut EnvDelta) -> LoadResult<()> {
 
     let installed = root.join("installed").join(&config.triplet);
     delta.set("VCPKG_ROOT", env(root.to_string_lossy()));
+    delta.set("VCPKG_TARGET_TRIPLET", env(config.triplet.to_owned()));
+    delta.set(
+        "CMAKE_TOOLCHAIN_FILE",
+        env(installed
+            .join("share")
+            .join("vcpkg")
+            .join("scripts")
+            .join("vcpkg.cmake")
+            .to_string_lossy()),
+    );
+
     delta.prepend("LIB", env(installed.join("lib").to_string_lossy()));
     delta.prepend("Path", env(installed.join("bin").to_string_lossy()));
     delta.prepend("INCLUDE", env(installed.join("include").to_string_lossy()));
