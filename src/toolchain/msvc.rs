@@ -1,5 +1,5 @@
 use super::error::{LoadError, LoadResult, ToolType};
-use crate::env::EnvDelta;
+use crate::env::{EnvDelta, EnvObj};
 use crate::msvc;
 use crate::project_config::Msvc;
 use log::{debug, info};
@@ -33,9 +33,9 @@ pub(super) fn apply(config: &Msvc, delta: &mut EnvDelta) -> LoadResult<()> {
     const PREPEND_VARS: [&str; 5] = ["Path", "LIB", "INCLUDE", "LIBPATH", "EXTERNAL_INCLUDE"];
     for (key, value) in vars {
         if PREPEND_VARS.contains(&key.as_str()) {
-            delta.prepend(key, value);
+            delta.prepend(key, EnvObj::new(value, "msvc"));
         } else {
-            delta.set(key, value);
+            delta.set(key, EnvObj::new(value, "msvc"));
         }
     }
     Ok(())

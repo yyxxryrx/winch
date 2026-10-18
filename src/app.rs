@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::path::Path;
 use std::process::Command;
+use crate::env::EnvObj;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
@@ -166,13 +167,13 @@ fn load_pure_environment_with(
     delta.pure = config.pure;
 
     for (k, v) in &config.env.set {
-        delta.set(k, v);
+        delta.set(k, EnvObj::new(v, "user config"));
     }
     for (k, v) in &config.env.prepend {
-        delta.prepend(k, v);
+        delta.prepend(k, EnvObj::new(v, "user config"));
     }
     for (k, v) in &config.env.append {
-        delta.append(k, v);
+        delta.append(k, EnvObj::new(v, "user config"));
     }
 
     let cached = CacheFile {

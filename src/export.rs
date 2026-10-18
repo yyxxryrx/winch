@@ -1,4 +1,4 @@
-use crate::env::EnvDelta;
+use crate::env::{env_to_string, EnvDelta};
 
 fn convert_windows_path_to_posix(path: &str) -> String {
     let path = path.replace("\\", "/");
@@ -25,33 +25,33 @@ pub fn export_bash(env_delta: &EnvDelta) -> String {
     for (key, value) in env_delta.set.iter() {
         bash.push_str(&format!(
             "export {key}=\"{}\"\n",
-            convert_windows_to_posix(value)
+            convert_windows_to_posix(&env_to_string(value.iter()))
         ));
     }
     for (key, value) in env_delta.prepend.iter() {
         if key == "Path" {
             bash.push_str(&format!(
                 "export PATH=\"{}:$PATH\"\n",
-                convert_windows_to_posix(value)
+                convert_windows_to_posix(&env_to_string(value.iter()))
             ));
             continue;
         }
         bash.push_str(&format!(
             "export {key}=\"{}:${key}\"\n",
-            convert_windows_to_posix(value)
+            convert_windows_to_posix(&env_to_string(value.iter()))
         ));
     }
     for (key, value) in env_delta.append.iter() {
         if key == "Path" {
             bash.push_str(&format!(
                 "export PATH=\"$PATH:{}\"\n",
-                convert_windows_to_posix(value)
+                convert_windows_to_posix(&env_to_string(value.iter()))
             ));
             continue;
         }
         bash.push_str(&format!(
             "export {key}=\"${key}:{}\"\n",
-            convert_windows_to_posix(value)
+            convert_windows_to_posix(&env_to_string(value.iter()))
         ));
     }
     bash
@@ -61,15 +61,15 @@ pub fn export_powershell(env_delta: &EnvDelta) -> String {
     let mut powershell = String::new();
 
     for (key, value) in env_delta.set.iter() {
-        powershell.push_str(&format!("${{env:{key}}} = \"{value}\"\n"));
+        powershell.push_str(&format!("${{env:{key}}} = \"{}\"\n", env_to_string(value.iter())));
     }
 
     for (key, value) in env_delta.prepend.iter() {
-        powershell.push_str(&format!("${{env:{key}}} = \"{value};${{env:{key}}}\"\n"));
+        powershell.push_str(&format!("${{env:{key}}} = \"{}:${{env:{key}}}\"\n", env_to_string(value.iter())));
     }
 
     for (key, value) in env_delta.append.iter() {
-        powershell.push_str(&format!("${{env:{key}}} = \"${{env:{key}}};{value}\"\n"));
+        powershell.push_str(&format!("${{env:{key}}} = \"${{env:{key}}};{}\"\n", env_to_string(value.iter())));
     }
 
     powershell
@@ -78,27 +78,27 @@ pub fn export_powershell(env_delta: &EnvDelta) -> String {
 pub fn export_nu(env_delta: &EnvDelta) -> String {
     let mut nu = String::new();
     for (key, value) in env_delta.set.iter() {
-        if value.contains(';') {
+        if value.len() > 1 {
             nu.push_str(&format!(
                 "$env.\"{key}\" = {:?}\n",
-                value.split(';').collect::<Vec<_>>()
+                value.into_iter().map(|v| v.value.clone()).collect::<Vec<_>>()
             ));
         } else {
-            nu.push_str(&format!("$env.\"{key}\" = {:?}\n", value));
+            nu.push_str(&format!("$env.\"{key}\" = {:?}\n", value.first().unwrap().value));
         }
     }
 
     for (key, value) in env_delta.prepend.iter() {
         nu.push_str(&format!(
             "$env.\"{key}\" = {:?} | append ($env | get -o \"{key}\")\n",
-            value.split(';').collect::<Vec<_>>()
+            value.into_iter().map(|v| v.value.clone()).collect::<Vec<_>>()
         ));
     }
 
     for (key, value) in env_delta.append.iter() {
         nu.push_str(&format!(
             "$env.\"{key}\" = ($env | get -o \"{key}\") | append {:?}\n",
-            value.split(';').collect::<Vec<_>>()
+            value.into_iter().map(|v| v.value.clone()).collect::<Vec<_>>()
         ));
     }
     nu

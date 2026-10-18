@@ -52,13 +52,13 @@ pub mod env_delta {
             .into_iter()
             .chain(delta.append.get("Path"));
         for path in paths {
-            for p in path.split(';') {
-                if p.is_empty() {
+            for p in path {
+                if p.value.is_empty() {
                     continue;
                 }
 
-                if !Path::new(p).exists() {
-                    return Err(error::CheckError::NotExists(p.to_string()));
+                if !Path::new(&p.value).exists() {
+                    return Err(error::CheckError::NotExists(p.value.to_string()));
                 }
             }
         }
