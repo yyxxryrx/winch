@@ -1,7 +1,7 @@
 use crate::version::{self, GetVersionResult};
 use std::path::{Path, PathBuf};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Tool {
     pub path: PathBuf,
     pub version: semver::Version,

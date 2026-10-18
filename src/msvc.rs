@@ -93,7 +93,7 @@ impl std::fmt::Display for VSVersion {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VS {
     pub version: VSVersion,
     pub installed_path: PathBuf,

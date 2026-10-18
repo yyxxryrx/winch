@@ -1,3 +1,4 @@
+use super::VcpkgPlan;
 use super::error::{LoadError, LoadResult};
 use crate::env::{EnvDelta, EnvObj};
 use crate::find;
@@ -21,14 +22,21 @@ fn env(value: impl Into<String>) -> EnvObj {
     EnvObj::new(value.into(), "vcpkg")
 }
 
-pub(super) fn apply(config: &Vcpkg, delta: &mut EnvDelta) -> LoadResult<()> {
-    let root = find_root()?;
+pub(super) fn plan(config: &Vcpkg) -> LoadResult<VcpkgPlan> {
+    Ok(VcpkgPlan {
+        root: find_root()?,
+        triplet: config.triplet.clone(),
+    })
+}
+
+pub(super) fn apply(plan: &VcpkgPlan, delta: &mut EnvDelta) -> LoadResult<()> {
+    let root = &plan.root;
     debug!("Find vcpkg root successfully ... {}", root.display());
     info!("Load VCPKG");
 
-    let installed = root.join("installed").join(&config.triplet);
+    let installed = root.join("installed").join(&plan.triplet);
     delta.set("VCPKG_ROOT", env(root.to_string_lossy()));
-    delta.set("VCPKG_TARGET_TRIPLET", env(config.triplet.to_owned()));
+    delta.set("VCPKG_TARGET_TRIPLET", env(plan.triplet.clone()));
     delta.set(
         "CMAKE_TOOLCHAIN_FILE",
         env(installed

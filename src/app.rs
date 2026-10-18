@@ -165,9 +165,15 @@ fn load_pure_environment_with(
 ) -> Result<crate::env::EnvDelta, AppError> {
     let config_path = Path::new("winch.toml");
     let hash = cache::hash_file(config_path)?;
+    let cached = cache::read(Path::new(cache::CACHE_PATH));
+    let hint = cached
+        .as_ref()
+        .and_then(|cache| cache.msys2_root.as_deref());
+    let plan = crate::toolchain::plan(config, hint)?;
+    let fingerprint = plan.fingerprint();
 
-    if !force && let Some(cached) = cache::read(Path::new(cache::CACHE_PATH)) {
-        if cached.matches(&hash) {
+    if !force && let Some(cached) = cached {
+        if cached.matches(&hash, &fingerprint, cache::now()) {
             debug!("Load from cache file");
             info!("Load env from cache file successfully");
             return Ok(cached.env);
@@ -175,7 +181,7 @@ fn load_pure_environment_with(
         debug!("Cache not matched, will reload env");
     }
 
-    let mut delta = crate::toolchain::resolve(config)?;
+    let mut delta = crate::toolchain::apply(&plan)?;
 
     delta.pure = config.pure;
 
@@ -192,6 +198,9 @@ fn load_pure_environment_with(
     let cached = CacheFile {
         version: cache::FORMAT_VERSION,
         hash,
+        fingerprint,
+        created_at: cache::now(),
+        msys2_root: plan.msys2.as_ref().map(|msys2| msys2.root.clone()),
         env: delta.clone(),
     };
     if let Err(e) = cache::write(Path::new(cache::CACHE_PATH), &cached) {

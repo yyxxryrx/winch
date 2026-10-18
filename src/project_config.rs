@@ -19,7 +19,7 @@ pub struct Msvc {
     pub platform: String,
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum Msys2ShellType {
     MinGW32,
