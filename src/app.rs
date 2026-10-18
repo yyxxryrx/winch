@@ -1,6 +1,6 @@
 use crate::cache::{self, CacheFile};
 use crate::cli::{Cli, RunArgs, SubCommand};
-use crate::env::EnvObj;
+use crate::env::{EnvDelta, EnvObj};
 use crate::find::{self, Tool};
 use crate::msvc;
 use crate::msys2;
@@ -42,6 +42,11 @@ pub fn run(cli: Cli) -> Result<(), AppError> {
         SubCommand::Run(args) => {
             let env = load_environment(cli.force)?;
             run_program(&args, &env.vars, env.pure)
+        }
+        SubCommand::Diff => {
+            let env = load_environment(cli.force)?;
+            crate::diff::print(&env.delta, &env.base, &env.vars);
+            Ok(())
         }
         SubCommand::Check => {
             let config = read_config()?;
@@ -121,15 +126,23 @@ pub fn report(err: &AppError) {
 
 struct LoadedEnvironment {
     vars: HashMap<String, String>,
+    base: HashMap<String, String>,
+    delta: EnvDelta,
     pure: bool,
 }
 
 fn load_environment(force: bool) -> Result<LoadedEnvironment, AppError> {
     let delta = load_pure_environment(force)?;
     let pure = delta.pure;
-    let mut vars = std::env::vars().collect::<HashMap<_, _>>();
+    let base = std::env::vars().collect::<HashMap<_, _>>();
+    let mut vars = base.clone();
     delta.apply_to(&mut vars);
-    Ok(LoadedEnvironment { vars, pure })
+    Ok(LoadedEnvironment {
+        vars,
+        base,
+        delta,
+        pure,
+    })
 }
 
 fn read_config() -> Result<Config, AppError> {
