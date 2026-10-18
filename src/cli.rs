@@ -21,6 +21,8 @@ pub struct Cli {
 pub enum SubCommand {
     /// Check the env
     Check,
+    /// Show environment changes
+    Diff,
     /// Export env
     Export(ExportArgs),
     /// Print env

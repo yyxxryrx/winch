@@ -16,6 +16,7 @@
 - 用 `pure = true` 只保留解析出的环境变量,不继承调用者的环境
 - 用 `winch shell` / `winch run` 在准备好的环境中启动 shell 或程序
 - 用 `winch env` 打印加载后的完整环境变量
+- 用 `winch diff` 查看环境变化及每条变化的来源
 - 把解析结果缓存到 `.winch/cache.toml`,减少重复解析
 - 导出 bash、PowerShell、Nushell 可用的环境脚本
 
@@ -26,7 +27,7 @@
 - [x] list搜索环境
 - [x] check检查
 - [x] MSYS2 环境注入支持
-- [ ] `diff`命令生成诊断信息
+- [x] `diff`命令生成诊断信息
 - [ ] `preset`命令生成 **CMake Presets**
 - [ ] `preset`命令生成 **compile_commands.json**
 - [ ] `preset`命令生成 **VSCode Tasks**
@@ -111,10 +112,10 @@ type = "ucrt64"
 FOO = "bar"
 
 [env.prepend]
-PATH = "C:\\tools\\bin"
+Path = "C:\\tools\\bin"
 
 [env.append]
-PATH = "C:\\other\\bin"
+Path = "C:\\other\\bin"
 ```
 
 几点注意:
@@ -155,6 +156,9 @@ winch list
 # 打印加载后的完整环境变量(按变量名排序)
 winch env
 
+# 查看应用 winch.toml 后的环境变化及来源
+winch diff
+
 # 在准备好的环境中启动 shell
 winch shell
 
@@ -183,6 +187,25 @@ winch --no-log env
 - `--no-log`:不输出日志(检查失败时仍会打印错误摘要)
 
 `winch env` 默认输出进程继承的完整环境加上 `winch.toml` 的结果,按变量名排序;开启 `pure` 后只输出解析结果。需要干净输出时配合 `--no-log` 使用。
+
+### 差异
+
+`winch diff` 比较当前进程环境和应用 `winch.toml` 后的环境,按变量名列出变化,并在每条追加/替换后标注来源:
+
+```text
+Path
+  + C:\msvc\bin  (msvc)
+  + C:\vcpkg\bin  (vcpkg)
+
+FOO
+  - old  (inherited)
+  + bar  (user config)
+```
+
+- 新增或 prepend/append 的值显示为 `+`;`[env]` 整体替换会同时显示 `-` 旧值和 `+` 新值
+- 来源包括 `msvc`、`vcpkg`、`java`、`msys2` 和 `user config`
+- 开启 `pure` 时,被清除的继承变量只汇总数量;使用 `--verbose` 可以在日志中查看具体变量名
+- 和 `env` / `shell` / `run` 一样使用缓存,需要重新解析时加 `--force`
 
 ### 用户配置
 
@@ -229,9 +252,10 @@ src/
   main.rs        入口,日志与退出码
   cli.rs         命令行参数
   app.rs         命令调度与环境加载
-  env.rs         环境变量增量模型(set / prepend)
+  env.rs         环境变量增量模型(set / prepend / append,含来源信息)
   cache.rs       缓存读写
   check.rs       环境检查(开发中)
+  diff.rs        环境差异与来源展示
   export.rs      脚本导出
   find.rs        在 PATH 中查找工具
   version.rs     clang / gcc / JDK 版本解析

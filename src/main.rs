@@ -2,6 +2,7 @@ mod app;
 mod cache;
 mod check;
 mod cli;
+mod diff;
 mod env;
 mod export;
 mod find;
