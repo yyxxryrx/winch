@@ -4,6 +4,15 @@ pub mod config {
     pub fn config_check(config: &crate::project_config::Config) -> Vec<String> {
         let mut errors = Vec::new();
 
+        if let Some(msys2) = config.toolchain.as_ref().and_then(|t| t.msys2.as_ref())
+            && msys2.enable
+        {
+            match crate::toolchain::msys2::check() {
+                Ok(msys2) => info!("msys2 root found ... {}", msys2.display()),
+                Err(e) => errors.push(format!("msys2: {e}")),
+            }
+        }
+
         if let Some(msvc) = config.toolchain.as_ref().and_then(|t| t.msvc.as_ref()) {
             match crate::toolchain::msvc::check(msvc) {
                 Ok(vs) => info!("msvc found ... {}", vs.installed_path.display()),

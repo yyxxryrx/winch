@@ -1,6 +1,7 @@
 pub(crate) mod error;
 pub(crate) mod java;
 pub(crate) mod msvc;
+pub(crate) mod msys2;
 pub(crate) mod vcpkg;
 
 use crate::env::EnvDelta;
@@ -10,6 +11,12 @@ pub use error::{LoadError, LoadResult, ToolType};
 
 pub fn resolve(config: &Config) -> LoadResult<EnvDelta> {
     let mut delta = EnvDelta::default();
+
+    if let Some(msys2) = config.toolchain.as_ref().and_then(|t| t.msys2.as_ref())
+        && msys2.enable
+    {
+        msys2::apply(msys2, &mut delta)?;
+    }
 
     if let Some(msvc) = config.toolchain.as_ref().and_then(|t| t.msvc.as_ref()) {
         msvc::apply(msvc, &mut delta)?;

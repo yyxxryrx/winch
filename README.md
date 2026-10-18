@@ -4,13 +4,13 @@
 >
 > 这是一个个人向的小工具,主要用来解决自己在 Windows 上管理开发环境变量的麻烦,按需迭代。
 
-`winch` 是一个 Windows 上的声明式环境变量管理工具。它读取当前目录的 `winch.toml`,解析 MSVC、vcpkg、JDK
-等工具链,把环境变量注入到子进程,或者导出成 shell 脚本。
+`winch` 是一个 Windows 上的声明式环境变量管理工具。它读取当前目录的 `winch.toml`,解析 MSVC、vcpkg、JDK、MSYS2 等工具链,把环境变量注入到子进程,或者导出成 shell 脚本。
 
 ## 能做什么
 
 - 按项目指定 MSVC 版本和平台,自动调用 `vcvarsall.bat` 组合环境
 - 可选启用 vcpkg,指定 triplet
+- 可选注入 MSYS2 环境,选择 MSYS / MinGW 类型
 - 可选按版本要求选择 JDK
 - 通过 `[env]` 覆盖自定义环境变量
 - 用 `winch shell` / `winch run` 在准备好的环境中启动 shell 或程序
@@ -23,8 +23,8 @@
 - [x] 环境探测
 - [x] 启动shell并注入环境
 - [x] list搜索环境
-- [ ] check检查
-- [ ] MSYS2 环境注入支持
+- [x] check检查
+- [x] MSYS2 环境注入支持
 - [ ] `diff`命令生成诊断信息
 - [ ] `preset`命令生成 **CMake Presets**
 - [ ] `preset`命令生成 **compile_commands.json**
@@ -39,7 +39,7 @@
 - Windows
 - 支持 edition 2024 的 Rust stable
 - 使用 MSVC 功能时需要 `vswhere.exe`(通常随 Visual Studio Installer 安装;也可以通过 winget 或 scoop 安装)
-- vcpkg、JDK 按需准备
+- vcpkg、JDK、MSYS2 按需准备
 
 ## 构建
 
@@ -63,6 +63,10 @@ java = "17"
 version = "17"
 platform = "x64"
 
+[toolchain.msys2]
+enable = true
+type = "ucrt64"
+
 [dev.vcpkg]
 enable = true
 triplet = "x64-windows"
@@ -73,16 +77,28 @@ FOO = "bar"
 
 字段说明:
 
-| 字段                      | 说明                                                                       |
-|---------------------------|----------------------------------------------------------------------------|
-| `toolchain.msvc.version`  | Visual Studio 版本,最多 4 段。省略的段按通配处理,例如 `17` 匹配任意 `17.x` |
-| `toolchain.msvc.platform` | 传给 `vcvarsall.bat` 的平台,如 `x64`、`x86`、`arm64`                       |
-| `toolchain.java`          | JDK 的 semver 版本要求,如 `17`、`>=17, <21`                                |
-| `dev.vcpkg.enable`        | 是否启用 vcpkg,默认 `false`                                                |
-| `dev.vcpkg.triplet`       | vcpkg triplet,如 `x64-windows`                                             |
-| `env`                     | 自定义环境变量,键和值都必须是字符串                                        |
+| 字段 | 说明 |
+| --- | --- |
+| `toolchain.msvc.version` | Visual Studio 版本,最多 4 段。省略的段按通配处理,例如 `17` 匹配任意 `17.x` |
+| `toolchain.msvc.platform` | 传给 `vcvarsall.bat` 的平台,如 `x64`、`x86`、`arm64` |
+| `toolchain.msys2.enable` | 是否启用 MSYS2 环境,默认 `false` |
+| `toolchain.msys2.type` | MSYS2 环境类型:`ucrt64`(默认)、`mingw64`、`mingw32`、`clang64`、`clangarm64`、`msys2` |
+| `toolchain.java` | JDK 的 semver 版本要求,如 `17`、`>=17, <21` |
+| `dev.vcpkg.enable` | 是否启用 vcpkg,默认 `false` |
+| `dev.vcpkg.triplet` | vcpkg triplet,如 `x64-windows` |
+| `env` | 自定义环境变量,键和值都必须是字符串 |
 
 所有段都是可选的,只写需要的部分即可;但一旦写了某个工具链,它内部的字段需要完整。
+
+### MSYS2
+
+启用后会设置 `MSYSTEM`,按类型设置 `MINGW_PACKAGE_PREFIX`,并把实际存在的 `usr/local/bin`、`usr/bin` 和对应环境的 `bin` 加入 `Path`:
+
+```toml
+[toolchain.msys2]
+enable = true
+type = "ucrt64"
+```
 
 ### 自定义环境变量
 
@@ -172,7 +188,7 @@ bash 导出会把 Windows 路径转换成 `/c/...` 形式,适合 Git Bash / MSYS
 ## 目前尚未完成
 
 - 仅支持 Windows
-- clang、gcc、MSYS2 目前只在 `list` 中检测,还没有注入环境
+- clang、gcc 目前只在 `list` 中检测,还没有注入环境
 - `check` 的检查项还比较基础:工具链是否可用、Path 目录是否存在
 - `[env]` 不支持变量展开和追加,同名变量会整体覆盖
 - 缓存只根据 `winch.toml` 判断是否有效,不会自动感知工具链变化
@@ -194,5 +210,5 @@ src/
   msvc.rs        vswhere、VS 版本、vcvarsall 环境提取
   msys2.rs       MSYS2 检测
   winapi.rs      Windows API 辅助
-  toolchain/     MSVC、vcpkg、JDK 的环境解析
+  toolchain/     MSVC、vcpkg、JDK、MSYS2 的环境解析
 ```
