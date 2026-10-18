@@ -35,12 +35,12 @@ pub fn run(cli: Cli) -> Result<(), AppError> {
             Ok(())
         }
         SubCommand::Shell => {
-            let envs = load_environment(cli.force)?;
-            shell(&envs)
+            let env = load_environment(cli.force)?;
+            shell(&env.vars, env.pure)
         }
         SubCommand::Run(args) => {
-            let envs = load_environment(cli.force)?;
-            run_program(&args, &envs)
+            let env = load_environment(cli.force)?;
+            run_program(&args, &env.vars, env.pure)
         }
         SubCommand::Check => {
             let config = read_config()?;
@@ -89,7 +89,7 @@ pub fn run(cli: Cli) -> Result<(), AppError> {
         }
         SubCommand::Env => {
             let env = load_environment(cli.force)?;
-            let mut entries = env.into_iter().collect::<Vec<_>>();
+            let mut entries = env.vars.into_iter().collect::<Vec<_>>();
             entries.sort_by(|a, b| a.0.cmp(&b.0));
             for (key, value) in entries {
                 println!("{key}={value}");
@@ -118,10 +118,17 @@ pub fn report(err: &AppError) {
     }
 }
 
-fn load_environment(force: bool) -> Result<HashMap<String, String>, AppError> {
-    let mut envs = std::env::vars().collect::<HashMap<_, _>>();
-    load_pure_environment(force)?.apply_to(&mut envs);
-    Ok(envs)
+struct LoadedEnvironment {
+    vars: HashMap<String, String>,
+    pure: bool,
+}
+
+fn load_environment(force: bool) -> Result<LoadedEnvironment, AppError> {
+    let delta = load_pure_environment(force)?;
+    let pure = delta.pure;
+    let mut vars = std::env::vars().collect::<HashMap<_, _>>();
+    delta.apply_to(&mut vars);
+    Ok(LoadedEnvironment { vars, pure })
 }
 
 fn read_config() -> Result<Config, AppError> {
@@ -215,24 +222,24 @@ fn list() {
     let _ = msvc::get_all_vs(&vswhere).inspect(|v| println!("MSVC: {v:#?}"));
 }
 
-fn shell(envs: &HashMap<String, String>) -> Result<(), AppError> {
+fn shell(envs: &HashMap<String, String>, pure: bool) -> Result<(), AppError> {
     let config = user_config::load_config()?.unwrap_or_default();
     debug!("Running shell ... {}", config.shell.program);
-    Command::new(config.shell.program)
-        .args(config.shell.args)
-        .envs(envs)
-        .spawn()?
-        .wait()?;
+    let mut command = Command::new(config.shell.program);
+    if pure {
+        command.env_clear();
+    }
+    command.args(config.shell.args).envs(envs).spawn()?.wait()?;
     Ok(())
 }
 
-fn run_program(args: &RunArgs, envs: &HashMap<String, String>) -> Result<(), AppError> {
+fn run_program(args: &RunArgs, envs: &HashMap<String, String>, pure: bool) -> Result<(), AppError> {
     debug!("Will run {} {}", args.program, args.args.join(" "));
-    let status = Command::new(&args.program)
-        .args(&args.args)
-        .envs(envs)
-        .spawn()?
-        .wait()?;
+    let mut command = Command::new(&args.program);
+    if pure {
+        command.env_clear();
+    }
+    let status = command.args(&args.args).envs(envs).spawn()?.wait()?;
 
     if status.success() {
         println!(

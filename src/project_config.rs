@@ -106,6 +106,18 @@ mod tests {
     use super::*;
 
     #[test]
+    fn pure_defaults_to_false() {
+        let config: Config = toml::from_str("").unwrap();
+        assert!(!config.pure);
+    }
+
+    #[test]
+    fn parses_pure_flag() {
+        let config: Config = toml::from_str("pure = true\n").unwrap();
+        assert!(config.pure);
+    }
+
+    #[test]
     fn env_keeps_plain_values_as_set() {
         let config: Config = toml::from_str("[env]\nFOO = \"bar\"\n").unwrap();
         assert_eq!(config.env.set["FOO"], "bar");

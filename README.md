@@ -13,6 +13,7 @@
 - 可选注入 MSYS2 环境,选择 MSYS / MinGW 类型
 - 可选按版本要求选择 JDK
 - 通过 `[env]` 覆盖自定义环境变量,或用 `[env.prepend]` / `[env.append]` 在值首尾追加
+- 用 `pure = true` 只保留解析出的环境变量,不继承调用者的环境
 - 用 `winch shell` / `winch run` 在准备好的环境中启动 shell 或程序
 - 用 `winch env` 打印加载后的完整环境变量
 - 把解析结果缓存到 `.winch/cache.toml`,减少重复解析
@@ -79,6 +80,7 @@ FOO = "bar"
 
 | 字段 | 说明 |
 | --- | --- |
+| `pure` | 是否清空继承的环境变量,只保留解析结果,默认 `false` |
 | `toolchain.msvc.version` | Visual Studio 版本,最多 4 段。省略的段按通配处理,例如 `17` 匹配任意 `17.x` |
 | `toolchain.msvc.platform` | 传给 `vcvarsall.bat` 的平台,如 `x64`、`x86`、`arm64` |
 | `toolchain.msys2.enable` | 是否启用 MSYS2 环境,默认 `false` |
@@ -123,6 +125,24 @@ PATH = "C:\\other\\bin"
 - 同一个变量可以同时出现在 `[env.prepend]` 和 `[env.append]`,会先应用 prepend 再应用 append
 - 同一个变量不要同时写在 `[env]` 和修改段中;修改段会覆盖 `[env]` 的声明
 
+### 纯净模式
+
+默认情况下,`winch env` / `winch shell` / `winch run` 会在当前进程环境的基础上叠加解析结果。在 `winch.toml` 顶层设置 `pure = true` 后,这些命令只保留解析出的变量,不再继承调用者的环境:
+
+```toml
+pure = true
+
+[env]
+SystemRoot = "C:\\Windows"
+TEMP = "C:\\Windows\\Temp"
+```
+
+几点注意:
+
+- 开启后 `SystemRoot`、`TEMP`、`USERPROFILE`、`Path` 等常用变量都会被清除;如果启动的 shell 或程序依赖它们,需要在 `[env]` 中显式补回
+- `pure` 只影响 `env`、`shell`、`run`;`export` 生成的脚本仍然只包含声明/解析出的变量,不会清空目标 shell 的环境
+- `check` 只校验解析结果,不受 `pure` 影响
+
 ### 命令
 
 ```powershell
@@ -162,7 +182,7 @@ winch --no-log env
 - `-f, --force`:忽略缓存,重新解析环境
 - `--no-log`:不输出日志(检查失败时仍会打印错误摘要)
 
-`winch env` 输出的是进程继承的完整环境加上 `winch.toml` 的结果,按变量名排序;需要干净输出时配合 `--no-log` 使用。
+`winch env` 默认输出进程继承的完整环境加上 `winch.toml` 的结果,按变量名排序;开启 `pure` 后只输出解析结果。需要干净输出时配合 `--no-log` 使用。
 
 ### 用户配置
 

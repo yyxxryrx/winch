@@ -115,6 +115,27 @@ mod tests {
     }
 
     #[test]
+    fn pure_clears_base_environment() {
+        let mut base = HashMap::from([
+            ("Path".to_string(), "old".to_string()),
+            ("KEEP".to_string(), "value".to_string()),
+        ]);
+        let mut delta = EnvDelta {
+            pure: true,
+            ..Default::default()
+        };
+        delta.set("FOO", "bar");
+        delta.prepend("Path", "C:/tools");
+
+        delta.apply_to(&mut base);
+
+        assert_eq!(base.len(), 2);
+        assert!(!base.contains_key("KEEP"));
+        assert_eq!(base["FOO"], "bar");
+        assert_eq!(base["Path"], "C:/tools");
+    }
+
+    #[test]
     fn apply_to_base_env() {
         let mut base = HashMap::from([
             ("Path".to_string(), "old".to_string()),

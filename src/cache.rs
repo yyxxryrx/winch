@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io::{self, BufReader, Read, Write};
 use std::path::Path;
 
-pub const FORMAT_VERSION: u32 = 3;
+pub const FORMAT_VERSION: u32 = 4;
 pub const CACHE_PATH: &str = ".winch/cache.toml";
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -89,6 +89,7 @@ mod tests {
         env.set("JAVA_HOME", "C:/jdk");
         env.prepend("Path", "C:/jdk/bin");
         env.append("Path", "C:/tools/bin");
+        env.pure = true;
         CacheFile {
             version: FORMAT_VERSION,
             hash: hash.to_string(),
@@ -108,6 +109,7 @@ mod tests {
         assert_eq!(loaded.env.set["JAVA_HOME"], "C:/jdk");
         assert_eq!(loaded.env.prepend["Path"], "C:/jdk/bin");
         assert_eq!(loaded.env.append["Path"], "C:/tools/bin");
+        assert!(loaded.env.pure);
 
         std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
