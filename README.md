@@ -4,7 +4,8 @@
 >
 > 这是一个个人向的小工具,主要用来解决自己在 Windows 上管理开发环境变量的麻烦,按需迭代。
 
-`winch` 是一个 Windows 上的声明式环境变量管理工具。它读取当前目录的 `winch.toml`,解析 MSVC、vcpkg、JDK 等工具链,把环境变量注入到子进程,或者导出成 shell 脚本。
+`winch` 是一个 Windows 上的声明式环境变量管理工具。它读取当前目录的 `winch.toml`,解析 MSVC、vcpkg、JDK
+等工具链,把环境变量注入到子进程,或者导出成 shell 脚本。
 
 ## 能做什么
 
@@ -15,6 +16,22 @@
 - 用 `winch shell` / `winch run` 在准备好的环境中启动 shell 或程序
 - 把解析结果缓存到 `.winch/cache.toml`,减少重复解析
 - 导出 bash、PowerShell、Nushell 可用的环境脚本
+
+## Todo List
+
+- [x] 环境探测
+- [x] 启动shell并注入环境
+- [x] list搜索环境
+- [ ] check检查
+- [ ] MSYS2 环境注入支持
+- [ ] `diff`命令生成诊断信息
+- [ ] `preset`命令生成 **CMake Presets**
+- [ ] `preset`命令生成 **compile_commands.json**
+- [ ] `preset`命令生成 **VSCode Tasks**
+- [ ] `preset`命令生成 **VSCode Launch**
+- [ ] `init`命令交互式创建`winch.toml`
+- [ ] 更好的缓存失效机制
+- [ ] 跨平台 (最低优先级)
 
 ## 环境要求
 
@@ -55,14 +72,14 @@ FOO = "bar"
 
 字段说明:
 
-| 字段 | 说明 |
-| --- | --- |
-| `toolchain.msvc.version` | Visual Studio 版本,最多 4 段。省略的段按通配处理,例如 `17` 匹配任意 `17.x` |
-| `toolchain.msvc.platform` | 传给 `vcvarsall.bat` 的平台,如 `x64`、`x86`、`arm64` |
-| `toolchain.java` | JDK 的 semver 版本要求,如 `17`、`>=17, <21` |
-| `dev.vcpkg.enable` | 是否启用 vcpkg,默认 `false` |
-| `dev.vcpkg.triplet` | vcpkg triplet,如 `x64-windows` |
-| `env` | 自定义环境变量,键和值都必须是字符串 |
+| 字段                      | 说明                                                                       |
+|---------------------------|----------------------------------------------------------------------------|
+| `toolchain.msvc.version`  | Visual Studio 版本,最多 4 段。省略的段按通配处理,例如 `17` 匹配任意 `17.x` |
+| `toolchain.msvc.platform` | 传给 `vcvarsall.bat` 的平台,如 `x64`、`x86`、`arm64`                       |
+| `toolchain.java`          | JDK 的 semver 版本要求,如 `17`、`>=17, <21`                                |
+| `dev.vcpkg.enable`        | 是否启用 vcpkg,默认 `false`                                                |
+| `dev.vcpkg.triplet`       | vcpkg triplet,如 `x64-windows`                                             |
+| `env`                     | 自定义环境变量,键和值都必须是字符串                                        |
 
 所有段都是可选的,只写需要的部分即可;但一旦写了某个工具链,它内部的字段需要完整。
 
@@ -79,7 +96,7 @@ FOO = "bar"
 
 - 值是字面量,不支持 `%VAR%` 或 `${env:VAR}` 之类的变量展开
 - 值需要是 TOML 字符串,`PORT = 8080` 这种写法会解析失败,应写成 `PORT = "8080"`
-- 如果覆盖 `Path`、`LIB`、`INCLUDE` 这类变量,会**整体替换**工具链拼好的结果,而不是追加
+- 如果覆盖 `Path`、`LIB`、`INCLUDE` 这类变量,会 **整体替换**工具链拼好的结果,而不是追加
 
 ### 命令
 
@@ -105,7 +122,7 @@ winch export --shell nu
 winch export --shell bash --output -
 ```
 
-全局参数(写在子命令之前):
+全局参数 (写在子命令之前):
 
 ```powershell
 winch --verbose check
