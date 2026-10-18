@@ -4,22 +4,40 @@ use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use std::fs::File;
 use std::io::{self, BufReader, Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
-pub const FORMAT_VERSION: u32 = 5;
+pub const FORMAT_VERSION: u32 = 7;
+pub const MAX_AGE_SECS: u64 = 7 * 24 * 60 * 60;
 pub const CACHE_PATH: &str = ".winch/cache.toml";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CacheFile {
     pub version: u32,
     pub hash: String,
+    #[serde(default)]
+    pub fingerprint: String,
+    #[serde(default)]
+    pub created_at: u64,
+    #[serde(default)]
+    pub msys2_root: Option<PathBuf>,
     pub env: EnvDelta,
 }
 
 impl CacheFile {
-    pub fn matches(&self, hash: &str) -> bool {
-        self.version == FORMAT_VERSION && self.hash == hash
+    pub fn matches(&self, hash: &str, fingerprint: &str, now: u64) -> bool {
+        self.version == FORMAT_VERSION
+            && self.hash == hash
+            && self.fingerprint == fingerprint
+            && now.saturating_sub(self.created_at) <= MAX_AGE_SECS
     }
+}
+
+pub fn now() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or_default()
 }
 
 pub fn hash_file(path: &Path) -> io::Result<String> {
@@ -95,6 +113,9 @@ mod tests {
         CacheFile {
             version: FORMAT_VERSION,
             hash: hash.to_string(),
+            fingerprint: "fingerprint".to_string(),
+            created_at: 100,
+            msys2_root: Some(PathBuf::from("C:/msys64")),
             env,
         }
     }
@@ -106,8 +127,12 @@ mod tests {
         write(&path, &cache).unwrap();
 
         let loaded = read(&path).unwrap();
-        assert!(loaded.matches("abc123"));
-        assert!(!loaded.matches("other"));
+        assert!(loaded.matches("abc123", "fingerprint", 100));
+        assert!(!loaded.matches("other", "fingerprint", 100));
+        assert!(!loaded.matches("abc123", "other", 100));
+        assert_eq!(loaded.fingerprint, "fingerprint");
+        assert_eq!(loaded.created_at, 100);
+        assert_eq!(loaded.msys2_root.as_deref(), Some(Path::new("C:/msys64")));
         assert_eq!(env_to_string(loaded.env.set["JAVA_HOME"].iter()), "C:/jdk");
         assert_eq!(
             env_to_string(loaded.env.prepend["Path"].iter().rev()),
@@ -139,6 +164,13 @@ mod tests {
     fn wrong_format_version_does_not_match() {
         let mut cache = sample_cache("abc123");
         cache.version = FORMAT_VERSION + 1;
-        assert!(!cache.matches("abc123"));
+        assert!(!cache.matches("abc123", "fingerprint", 100));
+    }
+
+    #[test]
+    fn expired_cache_does_not_match() {
+        let cache = sample_cache("abc123");
+        assert!(cache.matches("abc123", "fingerprint", 100 + MAX_AGE_SECS));
+        assert!(!cache.matches("abc123", "fingerprint", 101 + MAX_AGE_SECS));
     }
 }

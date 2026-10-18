@@ -28,12 +28,13 @@
 - [x] check检查
 - [x] MSYS2 环境注入支持
 - [x] `diff`命令生成诊断信息
+- [ ] 支持管理配置更多的平台（例如：Ninja、Conan、Python、Nodejs等）
 - [ ] `preset`命令生成 **CMake Presets**
 - [ ] `preset`命令生成 **compile_commands.json**
 - [ ] `preset`命令生成 **VSCode Tasks**
 - [ ] `preset`命令生成 **VSCode Launch**
 - [ ] `init`命令交互式创建`winch.toml`
-- [ ] 更好的缓存失效机制
+- [x] 更好的缓存失效机制
 - [ ] 跨平台 (最低优先级)
 
 ## 环境要求
@@ -127,6 +128,7 @@ Path = "C:\\other\\bin"
 - `[env]` 会 **整体替换**变量,包括 `Path`、`LIB`、`INCLUDE`;`[env.prepend]` / `[env.append]` 则用 `;` 拼接在现有值的开头或结尾
 - 同一个变量可以同时出现在 `[env.prepend]` 和 `[env.append]`,会先应用 prepend 再应用 append
 - 同一个变量不要同时写在 `[env]` 和修改段中;修改段会覆盖 `[env]` 的声明
+- 变量名按 Windows 规则不区分大小写;例如写 `PATH` 会合并到继承环境里的 `Path`,不会产生两个变量
 
 ### 纯净模式
 
@@ -223,9 +225,11 @@ args = ["-NoLogo"]
 
 ### 缓存
 
-- 缓存位于 `.winch/cache.toml`,以 `winch.toml` 的 SHA-256 作为键
+- 缓存位于 `.winch/cache.toml`,key 由 `winch.toml` 的 SHA-256 和工具链指纹组成
+- 工具链指纹包含选中的 VS/JDK/vcpkg/MSYS2 路径、版本和关键文件时间戳,工具链升级或移动会自动重建
+- 缓存最多使用 7 天,过期后自动重建,用于兜底原地升级;需要立即重建时使用 `--force`
+- 修改 `winch.toml`(包括 `[env]`)会自动重建缓存
 - 缓存里是解析后的绝对路径,属于本机数据,建议把 `/.winch/` 加入项目自己的 `.gitignore`
-- 修改 `winch.toml`(包括 `[env]`)会自动重建缓存;工具链升级或移动后请使用 `--force`
 - 缓存格式带版本号,格式不匹配时会自动重建
 
 ### 导出
@@ -244,7 +248,6 @@ bash 导出会把 Windows 路径转换成 `/c/...` 形式,适合 Git Bash / MSYS
 - clang、gcc 目前只在 `list` 中检测,还没有注入环境
 - `check` 的检查项还比较基础:工具链是否可用、Path 目录是否存在
 - `[env]` 不支持变量展开;追加请使用 `[env.prepend]` / `[env.append]`
-- 缓存只根据 `winch.toml` 判断是否有效,不会自动感知工具链变化
 - 测试覆盖有限,接口也在调整中
 
 ## 代码结构

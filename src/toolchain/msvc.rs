@@ -1,3 +1,4 @@
+use super::MsvcPlan;
 use super::error::{LoadError, LoadResult, ToolType};
 use crate::env::{EnvDelta, EnvObj};
 use crate::msvc;
@@ -19,16 +20,22 @@ pub(crate) fn check(config: &Msvc) -> LoadResult<msvc::VS> {
     find_vs(config)
 }
 
-pub(super) fn apply(config: &Msvc, delta: &mut EnvDelta) -> LoadResult<()> {
+pub(super) fn plan(config: &Msvc) -> LoadResult<MsvcPlan> {
+    Ok(MsvcPlan {
+        vs: find_vs(config)?,
+        platform: config.platform.clone(),
+    })
+}
+
+pub(super) fn apply(plan: &MsvcPlan, delta: &mut EnvDelta) -> LoadResult<()> {
     debug!("Preparing the MSVC environment");
-    let target = find_vs(config)?;
     debug!(
         "Find vs successfully ... {}",
-        target.installed_path.display()
+        plan.vs.installed_path.display()
     );
 
-    let vars = msvc::get_msvc_env(&target.installed_path, &config.platform)?;
-    info!("Load msvc {}", target.version);
+    let vars = msvc::get_msvc_env(&plan.vs.installed_path, &plan.platform)?;
+    info!("Load msvc {}", plan.vs.version);
 
     const PREPEND_VARS: [&str; 5] = ["Path", "LIB", "INCLUDE", "LIBPATH", "EXTERNAL_INCLUDE"];
     for (key, value) in vars {

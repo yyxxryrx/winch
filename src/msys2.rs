@@ -154,13 +154,27 @@ fn from_start_menu_lnk() -> Option<PathBuf> {
         })
 }
 
+pub(crate) fn is_valid_root(root: &Path) -> bool {
+    valid(root)
+}
+
 pub fn find_msys2() -> Option<PathBuf> {
-    let finders: [fn() -> Option<PathBuf>; 5] = [
+    find_msys2_with_hint(None)
+}
+
+pub fn find_msys2_with_hint(hint: Option<&Path>) -> Option<PathBuf> {
+    let finders: [fn() -> Option<PathBuf>; 4] = [
         from_env,
         from_registry,
         from_common_paths,
         from_start_menu_lnk,
-        from_drive_scan,
     ];
-    finders.into_iter().find_map(|finder| finder())
+    finders
+        .into_iter()
+        .find_map(|finder| finder())
+        .or_else(|| {
+            hint.filter(|path| is_valid_root(path))
+                .map(Path::to_path_buf)
+        })
+        .or_else(from_drive_scan)
 }
