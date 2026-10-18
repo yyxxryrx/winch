@@ -156,6 +156,8 @@ fn load_pure_environment_with(
 
     let mut delta = crate::toolchain::resolve(config)?;
 
+    delta.pure = config.pure;
+
     for (k, v) in &config.env.set {
         delta.set(k, v);
     }

@@ -97,6 +97,8 @@ pub struct Config {
     pub dev: Option<Dev>,
     #[serde(default)]
     pub env: EnvConfig,
+    #[serde(default)]
+    pub pure: bool,
 }
 
 #[cfg(test)]

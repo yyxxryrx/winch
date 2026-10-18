@@ -9,6 +9,8 @@ pub struct EnvDelta {
     pub prepend: BTreeMap<String, String>,
     #[serde(default)]
     pub append: BTreeMap<String, String>,
+    #[serde(default)]
+    pub pure: bool,
 }
 
 impl EnvDelta {
@@ -40,6 +42,9 @@ impl EnvDelta {
     }
 
     pub fn apply_to(&self, base: &mut HashMap<String, String>) {
+        if self.pure {
+            base.clear();
+        }
         for (key, value) in &self.set {
             base.insert(key.clone(), value.clone());
         }
