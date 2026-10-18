@@ -4,7 +4,8 @@
 >
 > 这是一个个人向的小工具,主要用来解决自己在 Windows 上管理开发环境变量的麻烦,按需迭代。
 
-`winch` 是一个 Windows 上的声明式环境变量管理工具。它读取当前目录的 `winch.toml`,解析 MSVC、vcpkg、JDK、MSYS2 等工具链,把环境变量注入到子进程,或者导出成 shell 脚本。
+`winch` 是一个 Windows 上的声明式环境变量管理工具。它读取当前目录的 `winch.toml`,解析 MSVC、vcpkg、JDK、MSYS2
+等工具链,把环境变量注入到子进程,或者导出成 shell 脚本。
 
 ## 能做什么
 
@@ -37,6 +38,12 @@
 - [x] 更好的缓存失效机制
 - [ ] 跨平台 (最低优先级)
 
+## 获取
+
+暂时没有正式版发布，您可以选择[从源码构建](#构建)或者从CI上下载最新的测试包。
+
+Actions 页面 CI workflow 会在推送到 main 分支时自动构建 release,并上传 `winch-windows-x64` 到 Artifacts
+
 ## 环境要求
 
 - Windows
@@ -52,7 +59,8 @@ cargo build --release
 
 生成的程序位于 `target/release/winch.exe`。
 
-CI 会在 `windows-latest` 上运行格式检查、clippy、测试和 release 构建。推送 `v*` 标签(例如 `v0.1.0`)会自动创建 GitHub Release,并上传包含 `winch.exe`、`README.md` 和 `LICENSE` 的 `winch-<tag>-windows-x64.zip`。
+CI 会在 `windows-latest` 上运行格式检查、clippy、测试和 release 构建。推送 `v*` 标签 (例如 `v0.1.0`)会自动创建 GitHub
+Release,并上传包含 `winch.exe`、`README.md` 和 `LICENSE` 的 `winch-<tag>-windows-x64.zip`。
 
 ## 使用
 
@@ -98,7 +106,8 @@ FOO = "bar"
 
 ### MSYS2
 
-启用后会设置 `MSYSTEM`,按类型设置 `MINGW_PACKAGE_PREFIX`,并把实际存在的 `usr/local/bin`、`usr/bin` 和对应环境的 `bin` 加入 `Path`:
+启用后会设置 `MSYSTEM`,按类型设置 `MINGW_PACKAGE_PREFIX`,并把实际存在的 `usr/local/bin`、`usr/bin` 和对应环境的 `bin` 加入
+`Path`:
 
 ```toml
 [toolchain.msys2]
@@ -108,7 +117,8 @@ type = "ucrt64"
 
 ### 自定义环境变量
 
-`[env]` 在工具链解析之后应用,同名变量会覆盖工具链生成的值。需要保留现有值并在开头或结尾追加时,使用 `[env.prepend]` 或 `[env.append]`:
+`[env]` 在工具链解析之后应用,同名变量会覆盖工具链生成的值。需要保留现有值并在开头或结尾追加时,使用 `[env.prepend]` 或
+`[env.append]`:
 
 ```toml
 [env]
@@ -132,7 +142,8 @@ Path = "C:\\other\\bin"
 
 ### 纯净模式
 
-默认情况下,`winch env` / `winch shell` / `winch run` 会在当前进程环境的基础上叠加解析结果。在 `winch.toml` 顶层设置 `pure = true` 后,这些命令只保留解析出的变量,不再继承调用者的环境:
+默认情况下,`winch env` / `winch shell` / `winch run` 会在当前进程环境的基础上叠加解析结果。在 `winch.toml` 顶层设置
+`pure = true` 后,这些命令只保留解析出的变量,不再继承调用者的环境:
 
 ```toml
 pure = true
@@ -144,7 +155,8 @@ TEMP = "C:\\Windows\\Temp"
 
 几点注意:
 
-- 开启后 `SystemRoot`、`TEMP`、`USERPROFILE`、`Path` 等常用变量都会被清除;如果启动的 shell 或程序依赖它们,需要在 `[env]` 中显式补回
+- 开启后 `SystemRoot`、`TEMP`、`USERPROFILE`、`Path` 等常用变量都会被清除;如果启动的 shell 或程序依赖它们,需要在 `[env]`
+  中显式补回
 - `pure` 只影响 `env`、`shell`、`run`;`export` 生成的脚本仍然只包含声明/解析出的变量,不会清空目标 shell 的环境
 - `check` 只校验解析结果,不受 `pure` 影响
 
@@ -188,9 +200,10 @@ winch --no-log env
 
 - `-v, --verbose`:输出调试日志
 - `-f, --force`:忽略缓存,重新解析环境
-- `--no-log`:不输出日志(检查失败时仍会打印错误摘要)
+- `--no-log`:不输出日志 (检查失败时仍会打印错误摘要)
 
-`winch env` 默认输出进程继承的完整环境加上 `winch.toml` 的结果,按变量名排序;开启 `pure` 后只输出解析结果。需要干净输出时配合 `--no-log` 使用。
+`winch env` 默认输出进程继承的完整环境加上 `winch.toml` 的结果,按变量名排序;开启 `pure` 后只输出解析结果。需要干净输出时配合
+`--no-log` 使用。
 
 ### 差异
 
