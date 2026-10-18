@@ -1,0 +1,36 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Run tests
+        run: cargo test --all-targets --locked
+      - name: Build release
+        run: cargo build --release --locked
+      - name: Package
+        shell: pwsh
+        run: |
+          $asset = "winch-${{ github.ref_name }}-windows-x64.zip"
+          Compress-Archive -Path target/release/winch.exe, README.md, LICENSE -DestinationPath $asset
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: winch-${{ github.ref_name }}-windows-x64.zip
+          generate_release_notes: true
+          fail_on_unmatched_files: true

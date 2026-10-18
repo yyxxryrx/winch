@@ -51,6 +51,8 @@ cargo build --release
 
 生成的程序位于 `target/release/winch.exe`。
 
+CI 会在 `windows-latest` 上运行格式检查、clippy、测试和 release 构建。推送 `v*` 标签(例如 `v0.1.0`)会自动创建 GitHub Release,并上传包含 `winch.exe`、`README.md` 和 `LICENSE` 的 `winch-<tag>-windows-x64.zip`。
+
 ## 使用
 
 ### 项目配置
