@@ -3,12 +3,20 @@ use crate::env::EnvDelta;
 use crate::find;
 use log::{debug, info};
 
-pub(super) fn apply(requirement: &str, delta: &mut EnvDelta) -> LoadResult<()> {
+fn find_jdk(requirement: &str) -> LoadResult<find::Tool> {
     let version = semver::VersionReq::parse(requirement)?;
-    let jdk = find::find_jdk_with_version()?
+    find::find_jdk_with_version()?
         .into_iter()
         .find(|tool| version.matches(&tool.version))
-        .ok_or_else(|| LoadError::CannotFind("target java".to_string()))?;
+        .ok_or_else(|| LoadError::CannotFind("target java".to_string()))
+}
+
+pub(crate) fn check(requirement: &str) -> LoadResult<find::Tool> {
+    find_jdk(requirement)
+}
+
+pub(super) fn apply(requirement: &str, delta: &mut EnvDelta) -> LoadResult<()> {
+    let jdk = find_jdk(requirement)?;
     debug!("Select java ... {}", jdk.path.display());
 
     let bin = jdk

@@ -1,7 +1,7 @@
-mod error;
-mod java;
-mod msvc;
-mod vcpkg;
+pub(crate) mod error;
+pub(crate) mod java;
+pub(crate) mod msvc;
+pub(crate) mod vcpkg;
 
 use crate::env::EnvDelta;
 use crate::project_config::Config;

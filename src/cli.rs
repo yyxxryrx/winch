@@ -4,6 +4,9 @@ use std::path::PathBuf;
 /// A declarative environment manager
 #[derive(Debug, Parser)]
 pub struct Cli {
+    /// Disable log output
+    #[clap(long)]
+    pub no_log: bool,
     /// Show debug log
     #[arg(short, long)]
     pub verbose: bool,
@@ -20,6 +23,8 @@ pub enum SubCommand {
     Check,
     /// Export env
     Export(ExportArgs),
+    /// Print env
+    Env,
     /// List all env
     List,
     /// Enter shell with env

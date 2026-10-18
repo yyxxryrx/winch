@@ -14,6 +14,7 @@
 - 可选按版本要求选择 JDK
 - 通过 `[env]` 覆盖自定义环境变量
 - 用 `winch shell` / `winch run` 在准备好的环境中启动 shell 或程序
+- 用 `winch env` 打印加载后的完整环境变量
 - 把解析结果缓存到 `.winch/cache.toml`,减少重复解析
 - 导出 bash、PowerShell、Nushell 可用的环境脚本
 
@@ -101,11 +102,14 @@ FOO = "bar"
 ### 命令
 
 ```powershell
-# 解析配置,做基础检查
+# 校验配置中的工具链,并检查解析出的 Path 目录
 winch check
 
 # 列出 PATH 中检测到的 clang / gcc / java,以及 MSYS2 和 Visual Studio
 winch list
+
+# 打印加载后的完整环境变量(按变量名排序)
+winch env
 
 # 在准备好的环境中启动 shell
 winch shell
@@ -127,10 +131,14 @@ winch export --shell bash --output -
 ```powershell
 winch --verbose check
 winch --force shell
+winch --no-log env
 ```
 
 - `-v, --verbose`:输出调试日志
 - `-f, --force`:忽略缓存,重新解析环境
+- `--no-log`:不输出日志(检查失败时仍会打印错误摘要)
+
+`winch env` 输出的是进程继承的完整环境加上 `winch.toml` 的结果,按变量名排序;需要干净输出时配合 `--no-log` 使用。
 
 ### 用户配置
 
@@ -165,7 +173,7 @@ bash 导出会把 Windows 路径转换成 `/c/...` 形式,适合 Git Bash / MSYS
 
 - 仅支持 Windows
 - clang、gcc、MSYS2 目前只在 `list` 中检测,还没有注入环境
-- `check` 目前只做基础的路径存在性检查,其他检查还在补充
+- `check` 的检查项还比较基础:工具链是否可用、Path 目录是否存在
 - `[env]` 不支持变量展开和追加,同名变量会整体覆盖
 - 缓存只根据 `winch.toml` 判断是否有效,不会自动感知工具链变化
 - 测试覆盖有限,接口也在调整中

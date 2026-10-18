@@ -4,17 +4,24 @@ use crate::msvc;
 use crate::project_config::Msvc;
 use log::{debug, info};
 
-pub(super) fn apply(config: &Msvc, delta: &mut EnvDelta) -> LoadResult<()> {
-    debug!("Preparing the MSVC environment");
+fn find_vs(config: &Msvc) -> LoadResult<msvc::VS> {
     let version = config.version.parse::<msvc::VSVersion>()?;
     let vswhere = msvc::try_get_vswhere().ok_or(LoadError::CannotFindTool(ToolType::VSWhere))?;
     debug!("Find vswhere successfully ... {}", vswhere.display());
 
-    let all = msvc::get_all_vs(&vswhere)?;
-    let target = all
-        .iter()
+    msvc::get_all_vs(&vswhere)?
+        .into_iter()
         .find(|v| version.is_match(&v.version))
-        .ok_or_else(|| LoadError::CannotFind("target msvc".to_string()))?;
+        .ok_or_else(|| LoadError::CannotFind("target msvc".to_string()))
+}
+
+pub(crate) fn check(config: &Msvc) -> LoadResult<msvc::VS> {
+    find_vs(config)
+}
+
+pub(super) fn apply(config: &Msvc, delta: &mut EnvDelta) -> LoadResult<()> {
+    debug!("Preparing the MSVC environment");
+    let target = find_vs(config)?;
     debug!(
         "Find vs successfully ... {}",
         target.installed_path.display()

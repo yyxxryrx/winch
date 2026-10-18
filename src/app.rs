@@ -3,6 +3,7 @@ use crate::cli::{Cli, RunArgs, SubCommand};
 use crate::find::{self, Tool};
 use crate::msvc;
 use crate::msys2;
+use crate::project_config::Config;
 use crate::toolchain::{LoadError, ToolType};
 use crate::user_config;
 use crate::version;
@@ -21,6 +22,8 @@ pub enum AppError {
     Io(#[from] std::io::Error),
     #[error("Failed to parse config: {0}")]
     Toml(#[from] toml::de::Error),
+    #[error("Environment check failed:\n  {}", .0.join("\n  "))]
+    CheckFailed(Vec<String>),
     #[error(transparent)]
     Toolchain(#[from] LoadError),
 }
@@ -40,16 +43,26 @@ pub fn run(cli: Cli) -> Result<(), AppError> {
             run_program(&args, &envs)
         }
         SubCommand::Check => {
-            let delta = load_pure_environment(cli.force)?;
-            if let Err(e) = crate::check::check_delta(&delta) {
-                match e {
-                    crate::check::error::CheckError::NotExists(p) => {
-                        error!("Path was not exists ... {p}")
+            let config = read_config()?;
+            let mut errors = crate::check::config::config_check(&config);
+
+            if errors.is_empty() {
+                match load_pure_environment_with(&config, cli.force) {
+                    Ok(delta) => {
+                        if let Err(e) = crate::check::env_delta::check_delta(&delta) {
+                            errors.push(e.to_string());
+                        }
                     }
+                    Err(e) => errors.push(e.to_string()),
                 }
             }
-            println!("{}", "Check successfully completed".bright_green());
-            Ok(())
+
+            if errors.is_empty() {
+                println!("{}", "Check successfully completed".bright_green());
+                Ok(())
+            } else {
+                Err(AppError::CheckFailed(errors))
+            }
         }
         SubCommand::Export(args) => {
             let delta = load_pure_environment(cli.force)?;
@@ -74,11 +87,23 @@ pub fn run(cli: Cli) -> Result<(), AppError> {
             file.write_all(script.as_bytes())?;
             Ok(())
         }
+        SubCommand::Env => {
+            let env = load_environment(cli.force)?;
+            let mut entries = env.into_iter().collect::<Vec<_>>();
+            entries.sort_by(|a, b| a.0.cmp(&b.0));
+            for (key, value) in entries {
+                println!("{key}={value}");
+            }
+            Ok(())
+        }
     }
 }
 
 pub fn report(err: &AppError) {
-    error!("{err}");
+    match err {
+        AppError::CheckFailed(_) => eprintln!("{}", err.to_string().bright_red()),
+        _ => error!("{err}"),
+    }
     if let AppError::Toolchain(LoadError::CannotFindTool(ToolType::VSWhere)) = err {
         println!(
             "{}",
@@ -99,11 +124,25 @@ fn load_environment(force: bool) -> Result<HashMap<String, String>, AppError> {
     Ok(envs)
 }
 
-fn load_pure_environment(force: bool) -> Result<crate::env::EnvDelta, AppError> {
+fn read_config() -> Result<Config, AppError> {
     let config_path = Path::new("winch.toml");
     if !config_path.exists() {
         return Err(AppError::NoConfig);
     }
+    let config_text = std::fs::read_to_string(config_path)?;
+    Ok(toml::from_str::<Config>(&config_text)?)
+}
+
+fn load_pure_environment(force: bool) -> Result<crate::env::EnvDelta, AppError> {
+    let config = read_config()?;
+    load_pure_environment_with(&config, force)
+}
+
+fn load_pure_environment_with(
+    config: &Config,
+    force: bool,
+) -> Result<crate::env::EnvDelta, AppError> {
+    let config_path = Path::new("winch.toml");
     let hash = cache::hash_file(config_path)?;
 
     if !force && let Some(cached) = cache::read(Path::new(cache::CACHE_PATH)) {
@@ -115,11 +154,9 @@ fn load_pure_environment(force: bool) -> Result<crate::env::EnvDelta, AppError> 
         debug!("Cache not matched, will reload env");
     }
 
-    let config_text = std::fs::read_to_string(config_path)?;
-    let config = toml::from_str::<crate::project_config::Config>(&config_text)?;
-    let mut delta = crate::toolchain::resolve(&config)?;
+    let mut delta = crate::toolchain::resolve(config)?;
 
-    for (k, v) in config.env.iter() {
+    for (k, v) in &config.env {
         delta.set(k, v);
     }
 
