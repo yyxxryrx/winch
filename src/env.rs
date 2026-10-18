@@ -24,6 +24,26 @@ pub(crate) fn env_to_string<'a>(envs: impl Iterator<Item = &'a EnvObj>) -> Strin
         .join(";")
 }
 
+fn find_key<V>(map: &BTreeMap<String, V>, key: &str) -> Option<String> {
+    map.keys()
+        .find(|existing| existing.eq_ignore_ascii_case(key))
+        .cloned()
+}
+
+fn remove_key<V>(map: &mut BTreeMap<String, V>, key: &str) {
+    if let Some(existing) = find_key(map, key) {
+        map.remove(&existing);
+    }
+}
+
+fn get_ci<'a, V>(map: &'a BTreeMap<String, V>, key: &str) -> Option<&'a V> {
+    map.get(key).or_else(|| {
+        map.iter()
+            .find(|(existing, _)| existing.eq_ignore_ascii_case(key))
+            .map(|(_, value)| value)
+    })
+}
+
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EnvDelta {
     #[serde(default)]
@@ -37,17 +57,26 @@ pub struct EnvDelta {
 }
 
 impl EnvDelta {
+    fn canonical_key(&self, key: &str) -> String {
+        find_key(&self.set, key)
+            .or_else(|| find_key(&self.prepend, key))
+            .or_else(|| find_key(&self.append, key))
+            .unwrap_or_else(|| key.to_string())
+    }
+
     pub fn set(&mut self, key: impl Into<String>, value: impl Into<EnvObj>) {
         let key = key.into();
-        self.prepend.remove(&key);
-        self.append.remove(&key);
+        let key = self.canonical_key(&key);
+        remove_key(&mut self.prepend, &key);
+        remove_key(&mut self.append, &key);
         self.set.insert(key, vec![value.into()]);
     }
 
     pub fn prepend(&mut self, key: impl Into<String>, value: impl Into<EnvObj>) {
         let key = key.into();
+        let key = self.canonical_key(&key);
         let value = value.into();
-        self.set.remove(&key);
+        remove_key(&mut self.set, &key);
         self.prepend
             .entry(key)
             .and_modify(|existing| existing.push(value.clone()))
@@ -56,12 +85,21 @@ impl EnvDelta {
 
     pub fn append(&mut self, key: impl Into<String>, value: impl Into<EnvObj>) {
         let key = key.into();
+        let key = self.canonical_key(&key);
         let value = value.into();
-        self.set.remove(&key);
+        remove_key(&mut self.set, &key);
         self.append
             .entry(key)
             .and_modify(|existing| existing.push(value.clone()))
             .or_insert_with(|| vec![value]);
+    }
+
+    pub fn prepend_values(&self, key: &str) -> Option<&[EnvObj]> {
+        get_ci(&self.prepend, key).map(Vec::as_slice)
+    }
+
+    pub fn append_values(&self, key: &str) -> Option<&[EnvObj]> {
+        get_ci(&self.append, key).map(Vec::as_slice)
     }
 
     pub fn apply_to(&self, base: &mut HashMap<String, String>) {
@@ -69,23 +107,38 @@ impl EnvDelta {
             base.clear();
         }
         for (key, value) in &self.set {
-            base.insert(key.clone(), env_to_string(value.iter()));
+            let value = env_to_string(value.iter());
+            match base
+                .iter_mut()
+                .find(|(existing, _)| existing.eq_ignore_ascii_case(key))
+            {
+                Some((_, existing)) => *existing = value,
+                None => {
+                    base.insert(key.clone(), value);
+                }
+            }
         }
         for (key, value) in &self.prepend {
-            match base.get_mut(key) {
-                Some(existing) => {
-                    *existing = format!("{};{existing}", env_to_string(value.iter().rev()))
-                }
+            let value = env_to_string(value.iter().rev());
+            match base
+                .iter_mut()
+                .find(|(existing, _)| existing.eq_ignore_ascii_case(key))
+            {
+                Some((_, existing)) => *existing = format!("{value};{existing}"),
                 None => {
-                    base.insert(key.clone(), env_to_string(value.iter().rev()));
+                    base.insert(key.clone(), value);
                 }
             }
         }
         for (key, value) in &self.append {
-            match base.get_mut(key) {
-                Some(existing) => *existing = format!("{existing};{}", env_to_string(value.iter())),
+            let value = env_to_string(value.iter());
+            match base
+                .iter_mut()
+                .find(|(existing, _)| existing.eq_ignore_ascii_case(key))
+            {
+                Some((_, existing)) => *existing = format!("{existing};{value}"),
                 None => {
-                    base.insert(key.clone(), env_to_string(value.iter()));
+                    base.insert(key.clone(), value);
                 }
             }
         }
@@ -137,6 +190,61 @@ mod tests {
         delta.append("Path", EnvObj::new("last", "test"));
         assert_eq!(env_to_string(delta.prepend["Path"].iter()), "first");
         assert_eq!(env_to_string(delta.append["Path"].iter()), "last");
+    }
+
+    #[test]
+    fn keys_are_case_insensitive() {
+        let mut delta = EnvDelta::default();
+        delta.prepend("Path", EnvObj::new("first", "test"));
+        delta.append("PATH", EnvObj::new("last", "test"));
+        delta.prepend("path", EnvObj::new("second", "test"));
+
+        assert_eq!(delta.prepend.len(), 1);
+        assert_eq!(delta.append.len(), 1);
+        assert!(delta.prepend.contains_key("Path"));
+        assert!(delta.append.contains_key("Path"));
+        assert_eq!(
+            env_to_string(delta.prepend["Path"].iter().rev()),
+            "second;first"
+        );
+        assert_eq!(env_to_string(delta.append["Path"].iter()), "last");
+    }
+
+    #[test]
+    fn set_removes_other_sections_case_insensitively() {
+        let mut delta = EnvDelta::default();
+        delta.prepend("Path", EnvObj::new("pre", "test"));
+        delta.append("PATH", EnvObj::new("post", "test"));
+        delta.set("path", EnvObj::new("new", "test"));
+
+        assert!(delta.prepend.is_empty());
+        assert!(delta.append.is_empty());
+        assert!(delta.set.contains_key("Path"));
+    }
+
+    #[test]
+    fn apply_to_matches_base_keys_case_insensitively() {
+        let mut base = HashMap::from([("Path".to_string(), "old".to_string())]);
+        let mut delta = EnvDelta::default();
+        delta.prepend("PATH", EnvObj::new("new", "test"));
+        delta.append("path", EnvObj::new("tail", "test"));
+
+        delta.apply_to(&mut base);
+
+        assert_eq!(base.len(), 1);
+        assert_eq!(base["Path"], "new;old;tail");
+    }
+
+    #[test]
+    fn set_replaces_base_key_case_insensitively() {
+        let mut base = HashMap::from([("Path".to_string(), "old".to_string())]);
+        let mut delta = EnvDelta::default();
+        delta.set("PATH", EnvObj::new("new", "test"));
+
+        delta.apply_to(&mut base);
+
+        assert_eq!(base.len(), 1);
+        assert_eq!(base["Path"], "new");
     }
 
     #[test]

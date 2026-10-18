@@ -28,6 +28,7 @@
 - [x] check检查
 - [x] MSYS2 环境注入支持
 - [x] `diff`命令生成诊断信息
+- [ ] 支持管理配置更多的平台（例如：Ninja、Conan、Python、Nodejs等）
 - [ ] `preset`命令生成 **CMake Presets**
 - [ ] `preset`命令生成 **compile_commands.json**
 - [ ] `preset`命令生成 **VSCode Tasks**
@@ -127,6 +128,7 @@ Path = "C:\\other\\bin"
 - `[env]` 会 **整体替换**变量,包括 `Path`、`LIB`、`INCLUDE`;`[env.prepend]` / `[env.append]` 则用 `;` 拼接在现有值的开头或结尾
 - 同一个变量可以同时出现在 `[env.prepend]` 和 `[env.append]`,会先应用 prepend 再应用 append
 - 同一个变量不要同时写在 `[env]` 和修改段中;修改段会覆盖 `[env]` 的声明
+- 变量名按 Windows 规则不区分大小写;例如写 `PATH` 会合并到继承环境里的 `Path`,不会产生两个变量
 
 ### 纯净模式
 

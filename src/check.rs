@@ -47,10 +47,9 @@ pub mod env_delta {
 
     fn check_path_exists(delta: &EnvDelta) -> Result<(), error::CheckError> {
         let paths = delta
-            .prepend
-            .get("Path")
+            .prepend_values("Path")
             .into_iter()
-            .chain(delta.append.get("Path"));
+            .chain(delta.append_values("Path"));
         for path in paths {
             for p in path {
                 for part in p.value.split(';') {
@@ -94,6 +93,15 @@ mod tests {
         let temp = std::env::temp_dir();
         let joined = format!("{};{}", temp.display(), temp.display());
         delta.prepend("Path", EnvObj::new(joined, "test"));
+
+        assert!(check_delta(&delta).is_ok());
+    }
+
+    #[test]
+    fn finds_path_case_insensitively() {
+        let mut delta = EnvDelta::default();
+        let temp = std::env::temp_dir();
+        delta.prepend("PATH", EnvObj::new(temp.display().to_string(), "test"));
 
         assert!(check_delta(&delta).is_ok());
     }

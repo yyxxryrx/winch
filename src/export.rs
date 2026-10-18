@@ -33,7 +33,7 @@ pub fn export_bash(env_delta: &EnvDelta) -> String {
         ));
     }
     for (key, value) in env_delta.prepend.iter() {
-        if key == "Path" {
+        if key.eq_ignore_ascii_case("Path") {
             bash.push_str(&format!(
                 "export PATH=\"{}:$PATH\"\n",
                 convert_windows_to_posix(&env_to_string(value.iter().rev()))
@@ -46,7 +46,7 @@ pub fn export_bash(env_delta: &EnvDelta) -> String {
         ));
     }
     for (key, value) in env_delta.append.iter() {
-        if key == "Path" {
+        if key.eq_ignore_ascii_case("Path") {
             bash.push_str(&format!(
                 "export PATH=\"$PATH:{}\"\n",
                 convert_windows_to_posix(&env_to_string(value.iter()))
@@ -139,6 +139,15 @@ mod tests {
         assert!(output.contains("export PATH=\"/c/third:/c/first:/c/second:$PATH\""));
         assert!(output.contains("export LIB=\"/c/libB:/c/libA:$LIB\""));
         assert!(output.contains("export PATH=\"$PATH:/c/last1:/c/last2\""));
+    }
+
+    #[test]
+    fn bash_treats_path_case_insensitively() {
+        let mut delta = EnvDelta::default();
+        delta.prepend("path", EnvObj::new("C:/pre", "test"));
+
+        let output = export_bash(&delta);
+        assert!(output.contains("export PATH=\"/c/pre:$PATH\""));
     }
 
     #[test]
