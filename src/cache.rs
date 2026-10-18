@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io::{self, BufReader, Read, Write};
 use std::path::Path;
 
-pub const FORMAT_VERSION: u32 = 4;
+pub const FORMAT_VERSION: u32 = 5;
 pub const CACHE_PATH: &str = ".winch/cache.toml";
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -73,7 +73,7 @@ pub fn write(path: &Path, cache: &CacheFile) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::env::{env_to_string, EnvObj};
+    use crate::env::{EnvObj, env_to_string};
 
     fn temp_path(name: &str) -> std::path::PathBuf {
         let unique = std::time::SystemTime::now()
@@ -89,7 +89,8 @@ mod tests {
         let mut env = EnvDelta::default();
         env.set("JAVA_HOME", EnvObj::new("C:/jdk", "java"));
         env.prepend("Path", EnvObj::new("C:/jdk/bin", "java"));
-        env.append("Path", EnvObj::new("C:/tools/bin", "java"));
+        env.prepend("Path", EnvObj::new("C:/tools/bin", "vcpkg"));
+        env.append("Path", EnvObj::new("C:/tools/bin", "vcpkg"));
         env.pure = true;
         CacheFile {
             version: FORMAT_VERSION,
@@ -108,8 +109,16 @@ mod tests {
         assert!(loaded.matches("abc123"));
         assert!(!loaded.matches("other"));
         assert_eq!(env_to_string(loaded.env.set["JAVA_HOME"].iter()), "C:/jdk");
-        assert_eq!(env_to_string(loaded.env.prepend["Path"].iter().rev()), "C:/jdk/bin");
-        assert_eq!(env_to_string(loaded.env.append["Path"].iter()), "C:/tools/bin");
+        assert_eq!(
+            env_to_string(loaded.env.prepend["Path"].iter().rev()),
+            "C:/tools/bin;C:/jdk/bin"
+        );
+        assert_eq!(loaded.env.prepend["Path"][0].source, "java");
+        assert_eq!(loaded.env.prepend["Path"][1].source, "vcpkg");
+        assert_eq!(
+            env_to_string(loaded.env.append["Path"].iter()),
+            "C:/tools/bin"
+        );
         assert!(loaded.env.pure);
 
         std::fs::remove_dir_all(path.parent().unwrap()).unwrap();

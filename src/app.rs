@@ -1,5 +1,6 @@
 use crate::cache::{self, CacheFile};
 use crate::cli::{Cli, RunArgs, SubCommand};
+use crate::env::EnvObj;
 use crate::find::{self, Tool};
 use crate::msvc;
 use crate::msys2;
@@ -13,7 +14,6 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::path::Path;
 use std::process::Command;
-use crate::env::EnvObj;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {

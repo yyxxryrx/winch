@@ -229,7 +229,7 @@ src/
   main.rs        入口,日志与退出码
   cli.rs         命令行参数
   app.rs         命令调度与环境加载
-  env.rs         环境变量增量模型(set / prepend)
+  env.rs         环境变量增量模型(set / prepend / append,含来源信息)
   cache.rs       缓存读写
   check.rs       环境检查(开发中)
   export.rs      脚本导出

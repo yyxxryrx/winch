@@ -1,4 +1,8 @@
-use crate::env::{env_to_string, EnvDelta};
+use crate::env::{EnvDelta, EnvObj, env_to_string};
+
+fn split_values<'a>(envs: impl Iterator<Item = &'a EnvObj>) -> Vec<&'a str> {
+    envs.flat_map(|env| env.value.split(';')).collect()
+}
 
 fn convert_windows_path_to_posix(path: &str) -> String {
     let path = path.replace("\\", "/");
@@ -32,13 +36,13 @@ pub fn export_bash(env_delta: &EnvDelta) -> String {
         if key == "Path" {
             bash.push_str(&format!(
                 "export PATH=\"{}:$PATH\"\n",
-                convert_windows_to_posix(&env_to_string(value.iter()))
+                convert_windows_to_posix(&env_to_string(value.iter().rev()))
             ));
             continue;
         }
         bash.push_str(&format!(
             "export {key}=\"{}:${key}\"\n",
-            convert_windows_to_posix(&env_to_string(value.iter()))
+            convert_windows_to_posix(&env_to_string(value.iter().rev()))
         ));
     }
     for (key, value) in env_delta.append.iter() {
@@ -61,15 +65,24 @@ pub fn export_powershell(env_delta: &EnvDelta) -> String {
     let mut powershell = String::new();
 
     for (key, value) in env_delta.set.iter() {
-        powershell.push_str(&format!("${{env:{key}}} = \"{}\"\n", env_to_string(value.iter())));
+        powershell.push_str(&format!(
+            "${{env:{key}}} = \"{}\"\n",
+            env_to_string(value.iter())
+        ));
     }
 
     for (key, value) in env_delta.prepend.iter() {
-        powershell.push_str(&format!("${{env:{key}}} = \"{}:${{env:{key}}}\"\n", env_to_string(value.iter())));
+        powershell.push_str(&format!(
+            "${{env:{key}}} = \"{};${{env:{key}}}\"\n",
+            env_to_string(value.iter().rev())
+        ));
     }
 
     for (key, value) in env_delta.append.iter() {
-        powershell.push_str(&format!("${{env:{key}}} = \"${{env:{key}}};{}\"\n", env_to_string(value.iter())));
+        powershell.push_str(&format!(
+            "${{env:{key}}} = \"${{env:{key}}};{}\"\n",
+            env_to_string(value.iter())
+        ));
     }
 
     powershell
@@ -78,28 +91,72 @@ pub fn export_powershell(env_delta: &EnvDelta) -> String {
 pub fn export_nu(env_delta: &EnvDelta) -> String {
     let mut nu = String::new();
     for (key, value) in env_delta.set.iter() {
-        if value.len() > 1 {
+        let values = split_values(value.iter());
+        if values.len() > 1 {
+            nu.push_str(&format!("$env.\"{key}\" = {values:?}\n"));
+        } else {
             nu.push_str(&format!(
                 "$env.\"{key}\" = {:?}\n",
-                value.into_iter().map(|v| v.value.clone()).collect::<Vec<_>>()
+                values.first().copied().unwrap_or_default()
             ));
-        } else {
-            nu.push_str(&format!("$env.\"{key}\" = {:?}\n", value.first().unwrap().value));
         }
     }
 
     for (key, value) in env_delta.prepend.iter() {
+        let values = split_values(value.iter().rev());
         nu.push_str(&format!(
-            "$env.\"{key}\" = {:?} | append ($env | get -o \"{key}\")\n",
-            value.into_iter().map(|v| v.value.clone()).collect::<Vec<_>>()
+            "$env.\"{key}\" = {values:?} | append ($env | get -o \"{key}\")\n"
         ));
     }
 
     for (key, value) in env_delta.append.iter() {
+        let values = split_values(value.iter());
         nu.push_str(&format!(
-            "$env.\"{key}\" = ($env | get -o \"{key}\") | append {:?}\n",
-            value.into_iter().map(|v| v.value.clone()).collect::<Vec<_>>()
+            "$env.\"{key}\" = ($env | get -o \"{key}\") | append {values:?}\n"
         ));
     }
     nu
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_delta() -> EnvDelta {
+        let mut delta = EnvDelta::default();
+        delta.set("FLAGS", EnvObj::new("a;b", "test"));
+        delta.prepend("Path", EnvObj::new("C:/first;C:/second", "test"));
+        delta.prepend("Path", EnvObj::new("C:/third", "test"));
+        delta.prepend("LIB", EnvObj::new("C:/libA", "test"));
+        delta.prepend("LIB", EnvObj::new("C:/libB", "test"));
+        delta.append("Path", EnvObj::new("C:/last1;C:/last2", "test"));
+        delta
+    }
+
+    #[test]
+    fn bash_prepend_order_and_path_conversion() {
+        let output = export_bash(&sample_delta());
+        assert!(output.contains("export PATH=\"/c/third:/c/first:/c/second:$PATH\""));
+        assert!(output.contains("export LIB=\"/c/libB:/c/libA:$LIB\""));
+        assert!(output.contains("export PATH=\"$PATH:/c/last1:/c/last2\""));
+    }
+
+    #[test]
+    fn powershell_uses_semicolon_for_prepend() {
+        let output = export_powershell(&sample_delta());
+        assert!(output.contains("${env:Path} = \"C:/third;C:/first;C:/second;${env:Path}\""));
+        assert!(output.contains("${env:LIB} = \"C:/libB;C:/libA;${env:LIB}\""));
+    }
+
+    #[test]
+    fn nu_splits_all_semicolon_values() {
+        let output = export_nu(&sample_delta());
+        assert!(output.contains("$env.\"FLAGS\" = [\"a\", \"b\"]"));
+        assert!(output.contains(
+            "$env.\"Path\" = [\"C:/third\", \"C:/first\", \"C:/second\"] | append ($env | get -o \"Path\")"
+        ));
+        assert!(output.contains(
+            "$env.\"Path\" = ($env | get -o \"Path\") | append [\"C:/last1\", \"C:/last2\"]"
+        ));
+    }
 }

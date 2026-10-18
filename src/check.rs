@@ -53,12 +53,14 @@ pub mod env_delta {
             .chain(delta.append.get("Path"));
         for path in paths {
             for p in path {
-                if p.value.is_empty() {
-                    continue;
-                }
+                for part in p.value.split(';') {
+                    if part.is_empty() {
+                        continue;
+                    }
 
-                if !Path::new(&p.value).exists() {
-                    return Err(error::CheckError::NotExists(p.value.to_string()));
+                    if !Path::new(part).exists() {
+                        return Err(error::CheckError::NotExists(part.to_string()));
+                    }
                 }
             }
         }
@@ -78,5 +80,39 @@ pub mod error {
     pub enum CheckError {
         #[error("Not exists: {0}")]
         NotExists(String),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::env_delta::check_delta;
+    use crate::env::{EnvDelta, EnvObj};
+
+    #[test]
+    fn splits_semicolon_separated_paths() {
+        let mut delta = EnvDelta::default();
+        let temp = std::env::temp_dir();
+        let joined = format!("{};{}", temp.display(), temp.display());
+        delta.prepend("Path", EnvObj::new(joined, "test"));
+
+        assert!(check_delta(&delta).is_ok());
+    }
+
+    #[test]
+    fn detects_missing_path_in_list() {
+        let mut delta = EnvDelta::default();
+        let temp = std::env::temp_dir();
+        let missing = temp.join(format!(
+            "winch-missing-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let joined = format!("{};{}", temp.display(), missing.display());
+        delta.append("Path", EnvObj::new(joined, "test"));
+
+        assert!(check_delta(&delta).is_err());
     }
 }
