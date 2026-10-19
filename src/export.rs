@@ -24,38 +24,58 @@ fn convert_windows_to_posix(value: &str) -> String {
         .join(":")
 }
 
+trait Escape {
+    fn escape_bash(&self) -> String;
+    fn escape_powershell(&self) -> String;
+    // fn escape_nu(&self) -> String;
+}
+
+impl Escape for str {
+    fn escape_bash(&self) -> String {
+        self.replace("\"", "\\\"").replace("$", "\\$")
+    }
+
+    fn escape_powershell(&self) -> String {
+        self.replace("\"", "`\"").replace("$", "`$")
+    }
+
+    // fn escape_nu(&self) -> String {
+    //     self.replace("\"", "\\\"")
+    // }
+}
+
 pub fn export_bash(env_delta: &EnvDelta) -> String {
     let mut bash = String::new();
     for (key, value) in env_delta.set.iter() {
         bash.push_str(&format!(
             "export {key}=\"{}\"\n",
-            convert_windows_to_posix(&env_to_string(value.iter()))
+            convert_windows_to_posix(&env_to_string(value.iter())).escape_bash()
         ));
     }
     for (key, value) in env_delta.prepend.iter() {
         if key.eq_ignore_ascii_case("Path") {
             bash.push_str(&format!(
                 "export PATH=\"{}:$PATH\"\n",
-                convert_windows_to_posix(&env_to_string(value.iter().rev()))
+                convert_windows_to_posix(&env_to_string(value.iter().rev())).escape_bash()
             ));
             continue;
         }
         bash.push_str(&format!(
             "export {key}=\"{}:${key}\"\n",
-            convert_windows_to_posix(&env_to_string(value.iter().rev()))
+            convert_windows_to_posix(&env_to_string(value.iter().rev())).escape_bash()
         ));
     }
     for (key, value) in env_delta.append.iter() {
         if key.eq_ignore_ascii_case("Path") {
             bash.push_str(&format!(
                 "export PATH=\"$PATH:{}\"\n",
-                convert_windows_to_posix(&env_to_string(value.iter()))
+                convert_windows_to_posix(&env_to_string(value.iter())).escape_bash()
             ));
             continue;
         }
         bash.push_str(&format!(
             "export {key}=\"${key}:{}\"\n",
-            convert_windows_to_posix(&env_to_string(value.iter()))
+            convert_windows_to_posix(&env_to_string(value.iter())).escape_bash()
         ));
     }
     bash
@@ -67,21 +87,21 @@ pub fn export_powershell(env_delta: &EnvDelta) -> String {
     for (key, value) in env_delta.set.iter() {
         powershell.push_str(&format!(
             "${{env:{key}}} = \"{}\"\n",
-            env_to_string(value.iter())
+            env_to_string(value.iter()).escape_powershell()
         ));
     }
 
     for (key, value) in env_delta.prepend.iter() {
         powershell.push_str(&format!(
             "${{env:{key}}} = \"{};${{env:{key}}}\"\n",
-            env_to_string(value.iter().rev())
+            env_to_string(value.iter().rev()).escape_powershell()
         ));
     }
 
     for (key, value) in env_delta.append.iter() {
         powershell.push_str(&format!(
             "${{env:{key}}} = \"${{env:{key}}};{}\"\n",
-            env_to_string(value.iter())
+            env_to_string(value.iter()).escape_powershell()
         ));
     }
 
@@ -131,6 +151,16 @@ mod tests {
         delta.prepend("LIB", EnvObj::new("C:/libB", "test"));
         delta.append("Path", EnvObj::new("C:/last1;C:/last2", "test"));
         delta
+    }
+
+    #[test]
+    fn base_escape() {
+        assert_eq!("\"$abc\"".escape_bash(), "\\\"\\$abc\\\"");
+    }
+
+    #[test]
+    fn powershell_escape() {
+        assert_eq!("\"${env:Path}\"".escape_powershell(), "`\"`${env:Path}`\"");
     }
 
     #[test]
