@@ -27,7 +27,7 @@ fn convert_windows_to_posix(value: &str) -> String {
 trait Escape {
     fn escape_bash(&self) -> String;
     fn escape_powershell(&self) -> String;
-    // fn escape_nu(&self) -> String;
+    fn escape_nu(&self) -> String;
 }
 
 impl Escape for str {
@@ -39,9 +39,12 @@ impl Escape for str {
         self.replace("\"", "`\"").replace("$", "`$")
     }
 
-    // fn escape_nu(&self) -> String {
-    //     self.replace("\"", "\\\"")
-    // }
+    fn escape_nu(&self) -> String {
+        self.replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("(", "\\(")
+            .replace(")", "\\)")
+    }
 }
 
 pub fn export_bash(env_delta: &EnvDelta) -> String {
@@ -123,16 +126,33 @@ pub fn export_nu(env_delta: &EnvDelta) -> String {
     }
 
     for (key, value) in env_delta.prepend.iter() {
-        let values = split_values(value.iter().rev());
+        if key.eq_ignore_ascii_case("Path") {
+            let values = split_values(value.iter().rev());
+            nu.push_str(&format!(
+                "$env.\"{key}\" = {values:?} | append ($env | get -o \"{key}\")\n"
+            ));
+            continue;
+        }
+
+        let values = env_to_string(value.iter().rev());
         nu.push_str(&format!(
-            "$env.\"{key}\" = {values:?} | append ($env | get -o \"{key}\")\n"
+            "$env.\"{key}\" = $\"{};($env | get -o \"{key}\")\"\n",
+            values.escape_nu()
         ));
     }
 
     for (key, value) in env_delta.append.iter() {
-        let values = split_values(value.iter());
+        if key.eq_ignore_ascii_case("Path") {
+            let values = split_values(value.iter());
+            nu.push_str(&format!(
+                "$env.\"{key}\" = ($env | get -o \"{key}\") | append {values:?}\n"
+            ));
+            continue;
+        }
+        let values = env_to_string(value.iter().rev());
         nu.push_str(&format!(
-            "$env.\"{key}\" = ($env | get -o \"{key}\") | append {values:?}\n"
+            "$env.\"{key}\" = $\"($env | get -o \"{key}\");{}\"\n",
+            values.escape_nu()
         ));
     }
     nu
