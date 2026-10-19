@@ -18,6 +18,7 @@
 - 用 `winch shell` / `winch run` 在准备好的环境中启动 shell 或程序
 - 用 `winch env` 打印加载后的完整环境变量
 - 用 `winch diff` 查看环境变化及每条变化的来源
+- 生成 CMake presets(`winch preset cmake`)
 - 把解析结果缓存到 `.winch/cache.toml`,减少重复解析
 - 导出 bash、PowerShell、Nushell 可用的环境脚本
 
@@ -30,7 +31,7 @@
 - [x] MSYS2 环境注入支持
 - [x] `diff`命令生成诊断信息
 - [ ] 支持管理配置更多的平台（例如：Ninja、Conan、Python、Nodejs等）
-- [ ] `preset`命令生成 **CMake Presets**
+- [x] `preset`命令生成 **CMake Presets**
 - [ ] `preset`命令生成 **compile_commands.json**
 - [ ] `preset`命令生成 **VSCode Tasks**
 - [ ] `preset`命令生成 **VSCode Launch**
@@ -193,6 +194,9 @@ winch env
 # 查看应用 winch.toml 后的环境变化及来源
 winch diff
 
+# 生成 CMake presets
+winch preset cmake
+
 # 在准备好的环境中启动 shell
 winch shell
 
@@ -273,12 +277,36 @@ args = ["-NoLogo"]
 
 bash 导出会把 Windows 路径转换成 `/c/...` 形式,适合 Git Bash / MSYS2 环境;PowerShell 和 Nushell 使用原生路径。
 
+### CMake Presets
+
+`winch preset cmake` 会把解析结果写进 `CMakeUserPresets.json`(可以用 `-o` 指定),并合并已有的其它 preset:
+
+```powershell
+winch preset cmake
+cmake --preset winch-debug
+cmake --build --preset winch-debug
+```
+
+生成的内容:
+
+- `winch-base`(hidden):工具链环境、vcpkg toolchain file 和 triplet
+- `winch-debug` / `winch-release`:继承 `winch-base`,分别设置 `CMAKE_BUILD_TYPE`
+- 对应的 build preset,兼容 Visual Studio 等多配置生成器
+
+说明:
+
+- 只更新 winch 生成的条目,已有的其它 preset 会保留
+- 默认输出 `CMakeUserPresets.json`,里面包含本机路径,建议不要提交
+- 需要 CMake 3.25+
+- CMake presets 的环境只能叠加,不能清空;`pure` 的隔离效果无法通过 preset 表达,`preset` 只注入解析结果
+
 ## 目前尚未完成
 
 - 仅支持 Windows
 - clang、gcc 目前只在 `list` 中检测,还没有注入环境
 - `check` 的检查项还比较基础:工具链是否可用、Path 目录是否存在
 - `[env]` 不支持变量展开;追加请使用 `[env.prepend]` / `[env.append]`
+- `preset` 目前只生成 CMake configure/build presets
 - 测试覆盖有限,接口也在调整中
 
 ## 代码结构
@@ -293,6 +321,7 @@ src/
   check.rs       环境检查(开发中)
   diff.rs        环境差异与来源展示
   export.rs      脚本导出
+  presets/       CMake presets 生成
   find.rs        在 PATH 中查找工具
   version.rs     clang / gcc / JDK 版本解析
   msvc.rs        vswhere、VS 版本、vcvarsall 环境提取

@@ -39,10 +39,9 @@ pub(super) fn apply(plan: &VcpkgPlan, delta: &mut EnvDelta) -> LoadResult<()> {
     delta.set("VCPKG_TARGET_TRIPLET", env(plan.triplet.clone()));
     delta.set(
         "CMAKE_TOOLCHAIN_FILE",
-        env(installed
-            .join("share")
-            .join("vcpkg")
+        env(root
             .join("scripts")
+            .join("buildsystems")
             .join("vcpkg.cmake")
             .to_string_lossy()),
     );
