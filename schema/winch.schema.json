@@ -1,0 +1,190 @@
+{
+  "$defs": {
+    "Dev": {
+      "additionalProperties": false,
+      "properties": {
+        "vcpkg": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Vcpkg"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "EnvConfig": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Custom environment variables. Plain keys are set; prepend/append extend existing values.",
+      "properties": {
+        "append": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Variables to append to existing values.",
+          "type": "object"
+        },
+        "prepend": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Variables to prepend to existing values.",
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "Msvc": {
+      "additionalProperties": false,
+      "properties": {
+        "platform": {
+          "description": "Platform passed to vcvarsall, such as x64, x86 or arm64.",
+          "type": "string"
+        },
+        "version": {
+          "description": "Visual Studio version, up to 4 dot-separated segments; omitted segments act as wildcards.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version",
+        "platform"
+      ],
+      "type": "object"
+    },
+    "Msys2": {
+      "additionalProperties": false,
+      "properties": {
+        "enable": {
+          "default": false,
+          "description": "Enable MSYS2 integration.",
+          "type": "boolean"
+        },
+        "type": {
+          "$ref": "#/$defs/Msys2ShellType",
+          "description": "MSYS2 environment type; defaults to ucrt64."
+        }
+      },
+      "type": "object"
+    },
+    "Msys2ShellType": {
+      "description": "MSYS2 environment type.",
+      "enum": [
+        "mingw32",
+        "mingw64",
+        "ucrt64",
+        "clang64",
+        "msys2",
+        "clangarm64"
+      ],
+      "type": "string"
+    },
+    "Toolchain": {
+      "additionalProperties": false,
+      "properties": {
+        "java": {
+          "description": "JDK semver requirement, for example 17 or >=17, <21.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "msvc": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Msvc"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "msys2": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Msys2"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "Vcpkg": {
+      "additionalProperties": false,
+      "properties": {
+        "enable": {
+          "default": false,
+          "description": "Enable vcpkg integration.",
+          "type": "boolean"
+        },
+        "triplet": {
+          "description": "vcpkg triplet, for example x64-windows.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "triplet"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://raw.githubusercontent.com/yyxxryrx/winch/main/schema/winch.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "winch project configuration.",
+  "properties": {
+    "dev": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Dev"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Development integrations."
+    },
+    "env": {
+      "$ref": "#/$defs/EnvConfig",
+      "description": "Custom environment variables."
+    },
+    "pure": {
+      "default": false,
+      "description": "Only keep resolved variables and pure_keep; do not inherit the caller environment.",
+      "type": "boolean"
+    },
+    "pure_keep": {
+      "description": "Variables to keep in pure mode. Omit to use the built-in whitelist; an empty array keeps none.",
+      "items": {
+        "type": "string"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "toolchain": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Toolchain"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Toolchain selection."
+    }
+  },
+  "title": "winch configuration",
+  "type": "object"
+}

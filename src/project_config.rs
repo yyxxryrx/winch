@@ -1,26 +1,37 @@
+use schemars::JsonSchema;
 use serde::Deserialize;
 use std::collections::HashMap;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, JsonSchema)]
+#[schemars(deny_unknown_fields)]
 pub struct Vcpkg {
     #[serde(default)]
+    #[schemars(description = "Enable vcpkg integration.")]
     pub enable: bool,
+    #[schemars(description = "vcpkg triplet, for example x64-windows.")]
     pub triplet: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, JsonSchema)]
+#[schemars(deny_unknown_fields)]
 pub struct Dev {
     pub vcpkg: Option<Vcpkg>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, JsonSchema)]
+#[schemars(deny_unknown_fields)]
 pub struct Msvc {
+    #[schemars(
+        description = "Visual Studio version, up to 4 dot-separated segments; omitted segments act as wildcards."
+    )]
     pub version: String,
+    #[schemars(description = "Platform passed to vcvarsall, such as x64, x86 or arm64.")]
     pub platform: String,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, Deserialize, Default, JsonSchema)]
 #[serde(rename_all = "lowercase")]
+#[schemars(description = "MSYS2 environment type.")]
 pub enum Msys2ShellType {
     MinGW32,
     MinGW64,
@@ -66,40 +77,60 @@ impl Msys2ShellType {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, JsonSchema)]
+#[schemars(deny_unknown_fields)]
 pub struct Msys2 {
     #[serde(default)]
+    #[schemars(description = "Enable MSYS2 integration.")]
     pub enable: bool,
     #[serde(default, rename = "type")]
+    #[schemars(description = "MSYS2 environment type; defaults to ucrt64.")]
     pub shell_type: Msys2ShellType,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, JsonSchema)]
+#[schemars(deny_unknown_fields)]
 pub struct Toolchain {
     pub msvc: Option<Msvc>,
     pub msys2: Option<Msys2>,
+    #[schemars(description = "JDK semver requirement, for example 17 or >=17, <21.")]
     pub java: Option<String>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, JsonSchema)]
+#[schemars(
+    description = "Custom environment variables. Plain keys are set; prepend/append extend existing values."
+)]
 pub struct EnvConfig {
     #[serde(flatten)]
     pub set: HashMap<String, String>,
     #[serde(default)]
+    #[schemars(description = "Variables to prepend to existing values.")]
     pub prepend: HashMap<String, String>,
     #[serde(default)]
+    #[schemars(description = "Variables to append to existing values.")]
     pub append: HashMap<String, String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, JsonSchema)]
+#[schemars(deny_unknown_fields, description = "winch project configuration.")]
 pub struct Config {
+    #[schemars(description = "Toolchain selection.")]
     pub toolchain: Option<Toolchain>,
+    #[schemars(description = "Development integrations.")]
     pub dev: Option<Dev>,
     #[serde(default)]
+    #[schemars(description = "Custom environment variables.")]
     pub env: EnvConfig,
     #[serde(default)]
+    #[schemars(
+        description = "Only keep resolved variables and pure_keep; do not inherit the caller environment."
+    )]
     pub pure: bool,
     #[serde(default)]
+    #[schemars(
+        description = "Variables to keep in pure mode. Omit to use the built-in whitelist; an empty array keeps none."
+    )]
     pub pure_keep: Option<Vec<String>>,
 }
 

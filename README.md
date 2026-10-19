@@ -19,6 +19,7 @@
 - 用 `winch env` 打印加载后的完整环境变量
 - 用 `winch diff` 查看环境变化及每条变化的来源
 - 生成 CMake presets(`winch preset cmake`)
+- 生成配置 JSON Schema(`winch schema`)
 - 把解析结果缓存到 `.winch/cache.toml`,减少重复解析
 - 导出 bash、PowerShell、Nushell 可用的环境脚本
 
@@ -30,6 +31,7 @@
 - [x] check检查
 - [x] MSYS2 环境注入支持
 - [x] `diff`命令生成诊断信息
+- [x] 配置文件 JSON Schema
 - [ ] 支持管理配置更多的平台（例如：Ninja、Conan、Python、Nodejs等）
 - [x] `preset`命令生成 **CMake Presets**
 - [ ] `preset`命令生成 **compile_commands.json**
@@ -198,6 +200,10 @@ winch diff
 # 生成 CMake presets
 winch preset cmake
 
+# 生成配置 schema
+winch schema
+winch schema -o schema/winch.schema.json
+
 # 在准备好的环境中启动 shell
 winch shell
 
@@ -301,6 +307,26 @@ cmake --build --preset winch-debug
 - 需要 CMake 3.25+
 - CMake presets 的环境只能叠加,不能清空;`pure` 的隔离效果无法通过 preset 表达,`preset` 只注入解析结果
 
+### 配置 Schema
+
+`schema/winch.schema.json` 由 Rust 配置结构生成,可以给 `winch.toml` 提供补全和校验:
+
+```powershell
+# 输出到 stdout
+winch schema
+
+# 重新生成仓库里的 schema
+winch schema -o schema/winch.schema.json
+```
+
+在支持 TOML schema 的编辑器里,可以在 `winch.toml` 顶部加一行,或者手动关联 schema:
+
+```toml
+#:schema https://raw.githubusercontent.com/yyxxryrx/winch/main/schema/winch.schema.json
+```
+
+schema 是从代码生成的,不要手动修改;CI 会检查仓库里的文件和生成结果是否一致。
+
 ## 目前尚未完成
 
 - 仅支持 Windows
@@ -323,6 +349,7 @@ src/
   diff.rs        环境差异与来源展示
   export.rs      脚本导出
   presets/       CMake presets 生成
+  schema.rs      配置 schema 生成
   find.rs        在 PATH 中查找工具
   version.rs     clang / gcc / JDK 版本解析
   msvc.rs        vswhere、VS 版本、vcvarsall 环境提取

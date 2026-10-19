@@ -35,6 +35,15 @@ pub enum SubCommand {
     Run(RunArgs),
     /// Generate presets
     Preset(PresetArgs),
+    /// Generate configuration schema
+    Schema(SchemaArgs),
+}
+
+#[derive(Debug, Parser)]
+pub struct SchemaArgs {
+    /// Output file (stdout by default)
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
 }
 
 #[derive(Debug, Parser)]

@@ -29,6 +29,8 @@ pub enum AppError {
     Toolchain(#[from] LoadError),
     #[error(transparent)]
     Presets(#[from] crate::presets::cmake::GenerateError),
+    #[error("JSONError: {0}")]
+    Json(#[from] serde_json::Error),
 }
 
 pub fn run(cli: Cli) -> Result<(), AppError> {
@@ -117,6 +119,23 @@ pub fn run(cli: Cli) -> Result<(), AppError> {
                     crate::presets::cmake::generate(&delta, &config, &args.output)?;
                     info!("Saved presets to {}", args.output.display());
                 }
+            }
+            Ok(())
+        }
+        SubCommand::Schema(args) => {
+            let schema = crate::schema::generate()?;
+            match args.output {
+                Some(path) => {
+                    if let Some(parent) = path
+                        .parent()
+                        .filter(|parent| !parent.as_os_str().is_empty())
+                    {
+                        std::fs::create_dir_all(parent)?;
+                    }
+                    std::fs::write(&path, schema)?;
+                    info!("Saved schema to {}", path.display());
+                }
+                None => print!("{schema}"),
             }
             Ok(())
         }
