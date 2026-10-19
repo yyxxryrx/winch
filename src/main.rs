@@ -10,6 +10,7 @@ mod msvc;
 mod msys2;
 mod presets;
 mod project_config;
+mod schema;
 mod toolchain;
 mod user_config;
 mod version;
