@@ -8,6 +8,7 @@ mod export;
 mod find;
 mod msvc;
 mod msys2;
+mod presets;
 mod project_config;
 mod toolchain;
 mod user_config;

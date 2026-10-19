@@ -27,6 +27,8 @@ pub enum AppError {
     CheckFailed(Vec<String>),
     #[error(transparent)]
     Toolchain(#[from] LoadError),
+    #[error(transparent)]
+    Presets(#[from] crate::presets::cmake::GenerateError),
 }
 
 pub fn run(cli: Cli) -> Result<(), AppError> {
@@ -99,6 +101,22 @@ pub fn run(cli: Cli) -> Result<(), AppError> {
             entries.sort_by(|a, b| a.0.cmp(&b.0));
             for (key, value) in entries {
                 println!("{key}={value}");
+            }
+            Ok(())
+        }
+        SubCommand::Preset(args) => {
+            let config = read_config()?;
+            let delta = load_pure_environment_with(&config, cli.force)?;
+            if delta.pure {
+                log::warn!(
+                    "pure mode cannot clear inherited variables in CMake presets; only resolved variables are injected"
+                );
+            }
+            match args.target {
+                crate::cli::PresetTarget::Cmake(args) => {
+                    crate::presets::cmake::generate(&delta, &config, &args.output)?;
+                    info!("Saved presets to {}", args.output.display());
+                }
             }
             Ok(())
         }

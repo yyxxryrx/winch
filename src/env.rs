@@ -138,6 +138,12 @@ impl EnvDelta {
         get_ci(&self.append, key).map(Vec::as_slice)
     }
 
+    pub fn set_value(&self, key: &str) -> Option<&str> {
+        get_ci(&self.set, key)
+            .and_then(|values| values.first())
+            .map(|value| value.value.as_str())
+    }
+
     pub fn apply_to(&self, base: &mut HashMap<String, String>) {
         if self.pure {
             base.retain(|key, _| self.keep.iter().any(|keep| keep.eq_ignore_ascii_case(key)));

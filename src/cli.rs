@@ -33,6 +33,27 @@ pub enum SubCommand {
     Shell,
     /// Run program with env
     Run(RunArgs),
+    /// Generate presets
+    Preset(PresetArgs),
+}
+
+#[derive(Debug, Parser)]
+pub struct PresetArgs {
+    #[clap(subcommand)]
+    pub target: PresetTarget,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum PresetTarget {
+    /// Generate CMake presets
+    Cmake(CmakePresetArgs),
+}
+
+#[derive(Debug, Parser)]
+pub struct CmakePresetArgs {
+    /// Output file
+    #[arg(short, long, default_value = "CMakeUserPresets.json")]
+    pub output: PathBuf,
 }
 
 #[derive(Debug, Parser)]
