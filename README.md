@@ -14,7 +14,7 @@
 - 可选注入 MSYS2 环境,选择 MSYS / MinGW 类型
 - 可选按版本要求选择 JDK
 - 通过 `[env]` 覆盖自定义环境变量,或用 `[env.prepend]` / `[env.append]` 在值首尾追加
-- 用 `pure = true` 只保留解析出的环境变量,不继承调用者的环境
+- 用 `pure = true` 只保留解析出的环境变量和 `pure_keep` 白名单,不继承调用者的环境
 - 用 `winch shell` / `winch run` 在准备好的环境中启动 shell 或程序
 - 用 `winch env` 打印加载后的完整环境变量
 - 用 `winch diff` 查看环境变化及每条变化的来源
@@ -93,6 +93,7 @@ FOO = "bar"
 | 字段                      | 说明                                                                                  |
 |---------------------------|---------------------------------------------------------------------------------------|
 | `pure`                    | 是否清空继承的环境变量,只保留解析结果,默认 `false`                                    |
+| `pure_keep`               | 纯净模式下保留的继承变量数组;不写时用内置白名单,`[]` 表示不保留                       |
 | `toolchain.msvc.version`  | Visual Studio 版本,最多 4 段。省略的段按通配处理,例如 `17` 匹配任意 `17.x`            |
 | `toolchain.msvc.platform` | 传给 `vcvarsall.bat` 的平台,如 `x64`、`x86`、`arm64`                                  |
 | `toolchain.msys2.enable`  | 是否启用 MSYS2 环境,默认 `false`                                                      |
@@ -143,20 +144,37 @@ Path = "C:\\other\\bin"
 ### 纯净模式
 
 默认情况下,`winch env` / `winch shell` / `winch run` 会在当前进程环境的基础上叠加解析结果。在 `winch.toml` 顶层设置
-`pure = true` 后,这些命令只保留解析出的变量,不再继承调用者的环境:
+`pure = true` 后,这些命令只保留解析出的变量和 `pure_keep` 指定的继承变量:
 
 ```toml
 pure = true
+pure_keep = ["SystemRoot", "TEMP", "USERPROFILE", "Path"]
 
 [env]
-SystemRoot = "C:\\Windows"
-TEMP = "C:\\Windows\\Temp"
+FOO = "bar"
 ```
 
-几点注意:
+`pure_keep` 的规则:
 
-- 开启后 `SystemRoot`、`TEMP`、`USERPROFILE`、`Path` 等常用变量都会被清除;如果启动的 shell 或程序依赖它们,需要在 `[env]`
-  中显式补回
+- 不写时使用内置默认白名单(见下)
+- 写 `pure_keep = []` 表示一个继承变量都不保留
+- 变量名不区分大小写
+- `Path` 不在默认白名单里;需要继承调用者的 `PATH` 时自己加进去
+
+默认白名单:
+
+```text
+SystemRoot, SystemDrive, WINDIR, ComSpec, PATHEXT,
+TEMP, TMP, USERPROFILE, HOMEDRIVE, HOMEPATH,
+APPDATA, LOCALAPPDATA, ProgramData,
+ProgramFiles, ProgramFiles(x86), ProgramW6432,
+CommonProgramFiles, CommonProgramFiles(x86), CommonProgramW6432,
+ALLUSERSPROFILE, PUBLIC,
+OS, PROCESSOR_ARCHITECTURE, NUMBER_OF_PROCESSORS
+```
+
+其他说明:
+
 - `pure` 只影响 `env`、`shell`、`run`;`export` 生成的脚本仍然只包含声明/解析出的变量,不会清空目标 shell 的环境
 - `check` 只校验解析结果,不受 `pure` 影响
 
@@ -202,8 +220,8 @@ winch --no-log env
 - `-f, --force`:忽略缓存,重新解析环境
 - `--no-log`:不输出日志 (检查失败时仍会打印错误摘要)
 
-`winch env` 默认输出进程继承的完整环境加上 `winch.toml` 的结果,按变量名排序;开启 `pure` 后只输出解析结果。需要干净输出时配合
-`--no-log` 使用。
+`winch env` 默认输出进程继承的完整环境加上 `winch.toml` 的结果,按变量名排序;开启 `pure` 后只输出解析结果和 `pure_keep`
+保留的变量。需要干净输出时配合 `--no-log` 使用。
 
 ### 差异
 

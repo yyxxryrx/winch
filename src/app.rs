@@ -184,6 +184,10 @@ fn load_pure_environment_with(
     let mut delta = crate::toolchain::apply(&plan)?;
 
     delta.pure = config.pure;
+    delta.keep = config
+        .pure_keep
+        .clone()
+        .unwrap_or_else(crate::env::default_pure_keep);
 
     for (k, v) in &config.env.set {
         delta.set(k, EnvObj::new(v, "user config"));

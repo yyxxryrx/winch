@@ -1,6 +1,40 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 
+pub const DEFAULT_PURE_KEEP: [&str; 24] = [
+    "SystemRoot",
+    "SystemDrive",
+    "WINDIR",
+    "ComSpec",
+    "PATHEXT",
+    "TEMP",
+    "TMP",
+    "USERPROFILE",
+    "HOMEDRIVE",
+    "HOMEPATH",
+    "APPDATA",
+    "LOCALAPPDATA",
+    "ProgramData",
+    "ProgramFiles",
+    "ProgramFiles(x86)",
+    "ProgramW6432",
+    "CommonProgramFiles",
+    "CommonProgramFiles(x86)",
+    "CommonProgramW6432",
+    "ALLUSERSPROFILE",
+    "PUBLIC",
+    "OS",
+    "PROCESSOR_ARCHITECTURE",
+    "NUMBER_OF_PROCESSORS",
+];
+
+pub fn default_pure_keep() -> Vec<String> {
+    DEFAULT_PURE_KEEP
+        .iter()
+        .map(|name| (*name).to_string())
+        .collect()
+}
+
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EnvObj {
     /// The environment variable value.
@@ -54,6 +88,8 @@ pub struct EnvDelta {
     pub append: BTreeMap<String, Vec<EnvObj>>,
     #[serde(default)]
     pub pure: bool,
+    #[serde(default)]
+    pub keep: Vec<String>,
 }
 
 impl EnvDelta {
@@ -104,7 +140,7 @@ impl EnvDelta {
 
     pub fn apply_to(&self, base: &mut HashMap<String, String>) {
         if self.pure {
-            base.clear();
+            base.retain(|key, _| self.keep.iter().any(|keep| keep.eq_ignore_ascii_case(key)));
         }
         for (key, value) in &self.set {
             let value = env_to_string(value.iter());
@@ -265,6 +301,49 @@ mod tests {
         assert!(!base.contains_key("KEEP"));
         assert_eq!(base["FOO"], "bar");
         assert_eq!(base["Path"], "C:/tools");
+    }
+
+    #[test]
+    fn pure_keeps_only_listed_vars_case_insensitively() {
+        let mut base = HashMap::from([
+            ("SystemRoot".to_string(), "C:/Windows".to_string()),
+            ("temp".to_string(), "C:/Temp".to_string()),
+            ("USERPROFILE".to_string(), "C:/Users/me".to_string()),
+        ]);
+        let delta = EnvDelta {
+            pure: true,
+            keep: vec!["systemroot".to_string(), "TEMP".to_string()],
+            ..Default::default()
+        };
+        delta.apply_to(&mut base);
+
+        assert_eq!(base.len(), 2);
+        assert_eq!(base["SystemRoot"], "C:/Windows");
+        assert_eq!(base["temp"], "C:/Temp");
+        assert!(!base.contains_key("USERPROFILE"));
+    }
+
+    #[test]
+    fn pure_with_empty_keep_clears_everything() {
+        let mut base = HashMap::from([
+            ("SystemRoot".to_string(), "C:/Windows".to_string()),
+            ("TEMP".to_string(), "C:/Temp".to_string()),
+        ]);
+        let delta = EnvDelta {
+            pure: true,
+            keep: Vec::new(),
+            ..Default::default()
+        };
+        delta.apply_to(&mut base);
+
+        assert!(base.is_empty());
+    }
+
+    #[test]
+    fn default_pure_keep_excludes_path() {
+        let keep = default_pure_keep();
+        assert!(keep.iter().any(|name| name == "SystemRoot"));
+        assert!(!keep.iter().any(|name| name.eq_ignore_ascii_case("Path")));
     }
 
     #[test]

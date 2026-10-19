@@ -99,6 +99,8 @@ pub struct Config {
     pub env: EnvConfig,
     #[serde(default)]
     pub pure: bool,
+    #[serde(default)]
+    pub pure_keep: Option<Vec<String>>,
 }
 
 #[cfg(test)]
@@ -115,6 +117,27 @@ mod tests {
     fn parses_pure_flag() {
         let config: Config = toml::from_str("pure = true\n").unwrap();
         assert!(config.pure);
+    }
+
+    #[test]
+    fn pure_keep_defaults_to_none() {
+        let config: Config = toml::from_str("pure = true\n").unwrap();
+        assert!(config.pure_keep.is_none());
+    }
+
+    #[test]
+    fn pure_keep_can_be_empty() {
+        let config: Config = toml::from_str("pure_keep = []\n").unwrap();
+        assert_eq!(config.pure_keep, Some(Vec::new()));
+    }
+
+    #[test]
+    fn parses_pure_keep_list() {
+        let config: Config = toml::from_str("pure_keep = [\"SystemRoot\", \"TEMP\"]\n").unwrap();
+        assert_eq!(
+            config.pure_keep,
+            Some(vec!["SystemRoot".to_string(), "TEMP".to_string()])
+        );
     }
 
     #[test]

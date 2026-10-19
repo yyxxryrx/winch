@@ -7,7 +7,7 @@ use std::io::{self, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-pub const FORMAT_VERSION: u32 = 7;
+pub const FORMAT_VERSION: u32 = 8;
 pub const MAX_AGE_SECS: u64 = 7 * 24 * 60 * 60;
 pub const CACHE_PATH: &str = ".winch/cache.toml";
 
@@ -110,6 +110,7 @@ mod tests {
         env.prepend("Path", EnvObj::new("C:/tools/bin", "vcpkg"));
         env.append("Path", EnvObj::new("C:/tools/bin", "vcpkg"));
         env.pure = true;
+        env.keep = vec!["SystemRoot".to_string(), "TEMP".to_string()];
         CacheFile {
             version: FORMAT_VERSION,
             hash: hash.to_string(),
@@ -145,6 +146,7 @@ mod tests {
             "C:/tools/bin"
         );
         assert!(loaded.env.pure);
+        assert_eq!(loaded.env.keep, ["SystemRoot", "TEMP"]);
 
         std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
