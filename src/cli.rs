@@ -57,7 +57,7 @@ pub struct CmakePresetArgs {
 }
 
 #[derive(Debug, Parser)]
-#[command(trailing_var_arg = true)]
+#[command(trailing_var_arg = true, allow_hyphen_values = true)]
 pub struct RunArgs {
     pub program: String,
     #[arg(required = false)]

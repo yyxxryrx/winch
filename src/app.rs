@@ -287,7 +287,7 @@ fn run_program(args: &RunArgs, envs: &HashMap<String, String>, pure: bool) -> Re
     let status = command.args(&args.args).envs(envs).spawn()?.wait()?;
 
     if status.success() {
-        println!(
+        eprintln!(
             "{}",
             format!("Run {} successfully", args.program).bright_green()
         );
