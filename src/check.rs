@@ -36,6 +36,17 @@ pub mod config {
             }
         }
 
+        if let Some(windows_sdk) = config.lib.windows_sdk.as_ref() {
+            match crate::toolchain::lib::windows_sdk::check(windows_sdk) {
+                Ok(tool) => info!(
+                    "windows SDK {} found ... {}",
+                    tool.version_text(),
+                    tool.path.display()
+                ),
+                Err(e) => errors.push(format!("windows_sdk: {e}")),
+            }
+        }
+
         errors
     }
 }

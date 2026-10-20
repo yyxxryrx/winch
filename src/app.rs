@@ -266,7 +266,7 @@ fn list() {
         match finder() {
             Ok(tools) => {
                 for tool in tools {
-                    println!("{}: {}", tool.version, tool.path.display());
+                    println!("{}: {}", tool.version_text(), tool.path.display());
                 }
             }
             Err(e) => println!("error: {e}"),

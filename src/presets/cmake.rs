@@ -325,6 +325,7 @@ mod tests {
 
     fn config() -> Config {
         Config {
+            lib: Default::default(),
             toolchain: None,
             dev: None,
             env: EnvConfig::default(),

@@ -1,5 +1,6 @@
 pub(crate) mod error;
 pub(crate) mod java;
+pub(crate) mod lib;
 pub(crate) mod msvc;
 pub(crate) mod msys2;
 pub(crate) mod vcpkg;
@@ -7,11 +8,22 @@ pub(crate) mod vcpkg;
 use crate::env::EnvDelta;
 use crate::find::Tool;
 use crate::msvc::VS;
-use crate::project_config::{Config, Msys2ShellType};
+use crate::project_config::{Config, Msys2ShellType, WindowsSDKPlatform};
 use sha2::Digest;
 use std::path::{Path, PathBuf};
 
 pub use error::{LoadError, LoadResult, ToolType};
+
+#[derive(Debug, Clone)]
+pub struct WindowsSDKPlan {
+    pub tool: Tool,
+    pub platform: WindowsSDKPlatform,
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct LibPlan {
+    pub windows_sdk: Option<WindowsSDKPlan>,
+}
 
 #[derive(Debug, Clone)]
 pub struct MsvcPlan {
@@ -42,6 +54,7 @@ pub struct Plan {
     pub msvc: Option<MsvcPlan>,
     pub vcpkg: Option<VcpkgPlan>,
     pub java: Option<JavaPlan>,
+    pub lib: LibPlan,
 }
 
 impl Plan {
@@ -182,6 +195,40 @@ impl Plan {
             }
         }
 
+        if let Some(windows_sdk) = &self.lib.windows_sdk {
+            let version = windows_sdk
+                .tool
+                .raw_version
+                .clone()
+                .unwrap_or_else(|| windows_sdk.tool.version.to_string());
+            add(
+                &mut hasher,
+                "sdk.root",
+                windows_sdk.tool.path.to_string_lossy().as_bytes(),
+            );
+            add(&mut hasher, "sdk.version", version.as_bytes());
+            add(
+                &mut hasher,
+                "sdk.platform",
+                windows_sdk.platform.as_str().as_bytes(),
+            );
+            add(
+                &mut hasher,
+                "sdk.include",
+                file_stamp(&windows_sdk.tool.path.join("Include").join(&version)),
+            );
+            add(
+                &mut hasher,
+                "sdk.lib",
+                file_stamp(&windows_sdk.tool.path.join("Lib").join(&version)),
+            );
+            add(
+                &mut hasher,
+                "sdk.bin",
+                file_stamp(&windows_sdk.tool.path.join("bin").join(&version)),
+            );
+        }
+
         hex::encode(hasher.finalize())
     }
 }
@@ -231,6 +278,8 @@ pub fn plan(config: &Config, msys2_hint: Option<&Path>) -> LoadResult<Plan> {
         plan.java = Some(java::plan(java)?);
     }
 
+    plan.lib = lib::plan(&config.lib)?;
+
     Ok(plan)
 }
 
@@ -252,6 +301,8 @@ pub fn apply(plan: &Plan) -> LoadResult<EnvDelta> {
     if let Some(java) = &plan.java {
         java::apply(java, &mut delta)?;
     }
+
+    lib::apply(&plan.lib, &mut delta)?;
 
     Ok(delta)
 }
@@ -294,5 +345,26 @@ mod tests {
     fn empty_plan_fingerprint_is_stable() {
         let plan = Plan::default();
         assert_eq!(plan.fingerprint(), plan.fingerprint());
+    }
+
+    fn sdk_plan(platform: WindowsSDKPlatform) -> WindowsSDKPlan {
+        WindowsSDKPlan {
+            tool: Tool {
+                path: PathBuf::from("C:/Kits"),
+                version: "10.0.26100".parse().unwrap(),
+                raw_version: Some("10.0.26100.0".to_string()),
+            },
+            platform,
+        }
+    }
+
+    #[test]
+    fn fingerprint_changes_with_windows_sdk() {
+        let mut plan = Plan::default();
+        plan.lib.windows_sdk = Some(sdk_plan(WindowsSDKPlatform::X64));
+        let first = plan.fingerprint();
+
+        plan.lib.windows_sdk.as_mut().unwrap().platform = WindowsSDKPlatform::X86;
+        assert_ne!(first, plan.fingerprint());
     }
 }

@@ -12,6 +12,7 @@
 - 按项目指定 MSVC 版本和平台,自动调用 `vcvarsall.bat` 组合环境
 - 可选启用 vcpkg,指定 triplet
 - 可选注入 MSYS2 环境,选择 MSYS / MinGW 类型
+- 可选选择 Windows SDK 版本和平台
 - 可选按版本要求选择 JDK
 - 通过 `[env]` 覆盖自定义环境变量,或用 `[env.prepend]` / `[env.append]` 在值首尾追加
 - 用 `pure = true` 只保留解析出的环境变量和 `pure_keep` 白名单,不继承调用者的环境
@@ -30,6 +31,7 @@
 - [x] list搜索环境
 - [x] check检查
 - [x] MSYS2 环境注入支持
+- [x] Windows SDK 支持
 - [x] `diff`命令生成诊断信息
 - [x] 配置文件 JSON Schema
 - [ ] 支持管理配置更多的平台（例如：Ninja、Conan、Python、Nodejs等）
@@ -53,7 +55,7 @@ Actions 页面 CI workflow 会在推送到 main 分支时自动构建 release,�
 - Windows
 - 支持 edition 2024 的 Rust stable
 - 使用 MSVC 功能时需要 `vswhere.exe`(通常随 Visual Studio Installer 安装;也可以通过 winget 或 scoop 安装)
-- vcpkg、JDK、MSYS2 按需准备
+- vcpkg、JDK、MSYS2、Windows SDK 按需准备
 
 ## 构建
 
@@ -84,6 +86,10 @@ platform = "x64"
 enable = true
 type = "ucrt64"
 
+[lib.windows_sdk]
+version = "10.0.26100"
+platform = "x64"
+
 [dev.vcpkg]
 enable = true
 triplet = "x64-windows"
@@ -102,6 +108,8 @@ FOO = "bar"
 | `toolchain.msvc.platform` | 传给 `vcvarsall.bat` 的平台,如 `x64`、`x86`、`arm64`                                  |
 | `toolchain.msys2.enable`  | 是否启用 MSYS2 环境,默认 `false`                                                      |
 | `toolchain.msys2.type`    | MSYS2 环境类型:`ucrt64`(默认)、`mingw64`、`mingw32`、`clang64`、`clangarm64`、`msys2` |
+| `lib.windows_sdk.version` | Windows SDK 的 semver 要求(如 `10.0`)或精确的 4 段版本(如 `10.0.26100.0`)        |
+| `lib.windows_sdk.platform` | SDK 平台:`x64`(默认)、`x86`、`arm64`                                              |
 | `toolchain.java`          | JDK 的 semver 版本要求,如 `17`、`>=17, <21`                                           |
 | `dev.vcpkg.enable`        | 是否启用 vcpkg,默认 `false`                                                           |
 | `dev.vcpkg.triplet`       | vcpkg triplet,如 `x64-windows`                                                        |
@@ -119,6 +127,21 @@ FOO = "bar"
 enable = true
 type = "ucrt64"
 ```
+
+### Windows SDK
+
+`[lib.windows_sdk]` 可以单独选择 Windows SDK,会注入 `INCLUDE`、`LIB`、`Path` 和 `LIBPATH`:
+
+```toml
+[lib.windows_sdk]
+version = "10.0.26100"
+platform = "x64"
+```
+
+- `version` 支持 semver 要求(如 `10.0`)或精确的 4 段版本(如 `10.0.26100.0`)
+- `platform` 可选 `x64`(默认)、`x86`、`arm64`
+- SDK 从注册表和 `Include` 目录中发现,只列出 `Include` / `Lib` / `bin` 都存在且完整的版本
+- `winch check` 会验证选中的 SDK 目录是否存在
 
 ### 自定义环境变量
 
@@ -350,10 +373,10 @@ src/
   export.rs      脚本导出
   presets/       CMake presets 生成
   schema.rs      配置 schema 生成
-  find.rs        在 PATH 中查找工具
+  find.rs        在 PATH / 注册表中查找工具和 Windows SDK
   version.rs     clang / gcc / JDK 版本解析
   msvc.rs        vswhere、VS 版本、vcvarsall 环境提取
   msys2.rs       MSYS2 检测
   winapi.rs      Windows API 辅助
-  toolchain/     MSVC、vcpkg、JDK、MSYS2 的环境解析
+  toolchain/     MSVC、vcpkg、JDK、MSYS2、Windows SDK 的环境解析
 ```

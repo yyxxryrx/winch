@@ -1,6 +1,53 @@
 use schemars::JsonSchema;
 use serde::Deserialize;
 use std::collections::HashMap;
+use std::fmt::Display;
+
+#[derive(Debug, Deserialize, JsonSchema, Default, Clone)]
+#[serde(rename_all = "lowercase")]
+#[schemars(description = "Windows SDK platform.")]
+pub enum WindowsSDKPlatform {
+    #[default]
+    X64,
+    X86,
+    Arm64,
+}
+
+impl Display for WindowsSDKPlatform {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+impl WindowsSDKPlatform {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::X64 => "x64",
+            Self::X86 => "x86",
+            Self::Arm64 => "arm64",
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct WindowsSDK {
+    #[schemars(
+        description = "Windows SDK semver requirement (for example 10.0) or exact 4-part version (for example 10.0.26100.0)."
+    )]
+    pub version: String,
+    #[serde(default)]
+    #[schemars(description = "SDK platform: x64, x86 or arm64; defaults to x64.")]
+    pub platform: WindowsSDKPlatform,
+}
+
+#[derive(Debug, Deserialize, JsonSchema, Default)]
+#[serde(deny_unknown_fields)]
+#[schemars(description = "Library and SDK selection.")]
+pub struct Lib {
+    #[schemars(description = "Windows SDK selection.")]
+    pub windows_sdk: Option<WindowsSDK>,
+}
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[schemars(deny_unknown_fields)]
@@ -115,6 +162,9 @@ pub struct EnvConfig {
 #[derive(Debug, Deserialize, JsonSchema)]
 #[schemars(deny_unknown_fields, description = "winch project configuration.")]
 pub struct Config {
+    #[serde(default)]
+    #[schemars(description = "Library configuration.")]
+    pub lib: Lib,
     #[schemars(description = "Toolchain selection.")]
     pub toolchain: Option<Toolchain>,
     #[schemars(description = "Development integrations.")]

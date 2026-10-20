@@ -41,6 +41,24 @@
       },
       "type": "object"
     },
+    "Lib": {
+      "additionalProperties": false,
+      "description": "Library and SDK selection.",
+      "properties": {
+        "windows_sdk": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WindowsSDK"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Windows SDK selection."
+        }
+      },
+      "type": "object"
+    },
     "Msvc": {
       "additionalProperties": false,
       "properties": {
@@ -136,6 +154,32 @@
         "triplet"
       ],
       "type": "object"
+    },
+    "WindowsSDK": {
+      "additionalProperties": false,
+      "properties": {
+        "platform": {
+          "$ref": "#/$defs/WindowsSDKPlatform",
+          "description": "SDK platform: x64, x86 or arm64; defaults to x64."
+        },
+        "version": {
+          "description": "Windows SDK semver requirement (for example 10.0) or exact 4-part version (for example 10.0.26100.0).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version"
+      ],
+      "type": "object"
+    },
+    "WindowsSDKPlatform": {
+      "description": "Windows SDK platform.",
+      "enum": [
+        "x64",
+        "x86",
+        "arm64"
+      ],
+      "type": "string"
     }
   },
   "$id": "https://raw.githubusercontent.com/yyxxryrx/winch/main/schema/winch.schema.json",
@@ -157,6 +201,10 @@
     "env": {
       "$ref": "#/$defs/EnvConfig",
       "description": "Custom environment variables."
+    },
+    "lib": {
+      "$ref": "#/$defs/Lib",
+      "description": "Library configuration."
     },
     "pure": {
       "default": false,
