@@ -88,7 +88,7 @@ pub fn run(cli: Cli) -> Result<(), AppError> {
             }
             let output = args
                 .output
-                .unwrap_or_else(|| dir.join(format!("env{}", args.shell.extension())));
+                .unwrap_or_else(|| export_output(&config_path, &args.shell));
             if output.as_os_str() == "-" {
                 print!("{script}");
                 return Ok(());
@@ -117,7 +117,7 @@ pub fn run(cli: Cli) -> Result<(), AppError> {
             }
             match args.target {
                 crate::cli::PresetTarget::Cmake(args) => {
-                    crate::presets::cmake::generate(&delta, &config, &args.output)?;
+                    crate::presets::cmake::generate(&delta, &config, &config_path, &args.output)?;
                     info!("Saved presets to {}", args.output.display());
                 }
             }
@@ -253,6 +253,45 @@ fn load_pure_environment_with(
     }
 
     Ok(delta)
+}
+
+fn export_output(config_path: &Path, shell: &crate::cli::SupportedShell) -> PathBuf {
+    let extension = shell.extension();
+    let is_default = config_path.file_name() == Some(std::ffi::OsStr::new("winch.toml"));
+
+    let name = if is_default {
+        format!("env{extension}")
+    } else {
+        let stem = config_path
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .unwrap_or("config");
+        let stem = stem.strip_prefix("winch").unwrap_or(stem);
+        let stem = stem.trim_matches(|c| matches!(c, '-' | '.' | '_'));
+        let stem = sanitize_stem(stem);
+        format!("env-{stem}{extension}")
+    };
+
+    Path::new(".winch").join(name)
+}
+
+fn sanitize_stem(stem: &str) -> String {
+    let sanitized = stem
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.') {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>();
+
+    if sanitized.is_empty() {
+        "config".to_string()
+    } else {
+        sanitized
+    }
 }
 
 fn list() {

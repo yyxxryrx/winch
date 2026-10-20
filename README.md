@@ -129,7 +129,10 @@ winch --config configs/winch.release.toml shell
 winch -c winch.dev.toml preset cmake
 ```
 
-不同配置使用独立的缓存文件:
+不同配置使用独立的缓存和导出文件,CMake preset 的名称也会带上配置名:
+
+- `winch.toml` → `winch-base` / `winch-debug`,导出 `.winch/env.ps1`
+- `winch.dev.toml` → `winch-dev-base` / `winch-dev-debug`,导出 `.winch/env-dev.ps1`
 
 ### MSYS2
 
@@ -319,11 +322,13 @@ args = ["-NoLogo"]
 
 ### 导出
 
-`winch export` 会把当前解析结果写成脚本,默认输出到:
+`winch export` 会把当前解析结果写成脚本。默认配置文件 `winch.toml` 输出到:
 
 - `.winch/env.sh`
 - `.winch/env.ps1`
 - `.winch/env.nu`
+
+使用其它配置文件时,默认文件名会带上配置名,例如 `winch.dev.toml` 输出 `.winch/env-dev.ps1`;也可以用 `-o` 显式指定。
 
 bash 导出会把 Windows 路径转换成 `/c/...` 形式,适合 Git Bash / MSYS2 环境;PowerShell 和 Nushell 使用原生路径。
 
@@ -343,9 +348,11 @@ cmake --build --preset winch-debug
 - `winch-debug` / `winch-release`:继承 `winch-base`,分别设置 `CMAKE_BUILD_TYPE`
 - 对应的 build preset,兼容 Visual Studio 等多配置生成器
 
+如果使用其它配置文件,preset 名称会加上配置名,例如 `winch.dev.toml` 生成 `winch-dev-base`、`winch-dev-debug`;不同配置可以共存在同一个 `CMakeUserPresets.json` 中。
+
 说明:
 
-- 只更新 winch 生成的条目,已有的其它 preset 会保留
+- 只更新当前配置生成的条目,已有的其它 preset 会保留
 - 默认输出 `CMakeUserPresets.json`,里面包含本机路径,建议不要提交
 - 需要 CMake 3.25+
 - CMake presets 的环境只能叠加,不能清空;`pure` 的隔离效果无法通过 preset 表达,`preset` 只注入解析结果
