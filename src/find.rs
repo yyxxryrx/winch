@@ -1,4 +1,4 @@
-use crate::version::{self, GetVersionResult};
+use crate::version::{self, GetVersionError, GetVersionResult};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
@@ -57,4 +57,30 @@ pub fn find_vcpkg() -> Option<PathBuf> {
                 .and_then(|path| path.parent())
                 .map(Path::to_path_buf)
         })
+}
+
+pub fn find_windows_sdk() -> GetVersionResult<Vec<Tool>> {
+    use winreg::HKLM;
+    let mut sdks = vec![];
+    if let Ok(root) = HKLM.open_subkey(r"SOFTWARE\WOW6432Node\Microsoft\Microsoft SDKs\Windows") {
+        for name in root.enum_keys().flatten() {
+            let Ok(key) = root.open_subkey(&name) else {
+                continue;
+            };
+
+            let version = key
+                .get_value::<String, &str>("ProductVersion")
+                .unwrap_or_default();
+
+            let install_dir = key
+                .get_value::<String, &str>("InstallationFolder")
+                .unwrap_or_default();
+
+            sdks.push(Tool {
+                path: install_dir.into(),
+                version: semver::Version::parse(&version).map_err(|_| GetVersionError::NotMatch)?,
+            });
+        }
+    }
+    Ok(sdks)
 }

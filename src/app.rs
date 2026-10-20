@@ -254,10 +254,11 @@ fn load_pure_environment_with(
 fn list() {
     type VersionFinder = fn() -> version::GetVersionResult<Vec<Tool>>;
 
-    let finders: [(&str, VersionFinder); 3] = [
+    let finders: [(&str, VersionFinder); 4] = [
         ("clang", find::find_clang_with_version),
         ("gcc", find::find_gcc_with_version),
         ("java", find::find_jdk_with_version),
+        ("windows sdk", find::find_windows_sdk),
     ];
 
     for (name, finder) in finders {
