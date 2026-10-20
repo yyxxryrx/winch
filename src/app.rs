@@ -12,13 +12,13 @@ use colored::Colorize;
 use log::{debug, error, info};
 use std::collections::HashMap;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
-    #[error("No winch.toml found in the current directory")]
-    NoConfig,
+    #[error("Config file not found: {}", .0.display())]
+    NoConfig(PathBuf),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error("Failed to parse config: {0}")]
@@ -34,30 +34,31 @@ pub enum AppError {
 }
 
 pub fn run(cli: Cli) -> Result<(), AppError> {
+    let config_path = cli.config;
     match cli.command {
         SubCommand::List => {
             list();
             Ok(())
         }
         SubCommand::Shell => {
-            let env = load_environment(cli.force)?;
+            let env = load_environment(cli.force, &config_path)?;
             shell(&env.vars, env.pure)
         }
         SubCommand::Run(args) => {
-            let env = load_environment(cli.force)?;
+            let env = load_environment(cli.force, &config_path)?;
             run_program(&args, &env.vars, env.pure)
         }
         SubCommand::Diff => {
-            let env = load_environment(cli.force)?;
+            let env = load_environment(cli.force, &config_path)?;
             crate::diff::print(&env.delta, &env.base, &env.vars);
             Ok(())
         }
         SubCommand::Check => {
-            let config = read_config()?;
+            let config = read_config(&config_path)?;
             let mut errors = crate::check::config::config_check(&config);
 
             if errors.is_empty() {
-                match load_pure_environment_with(&config, cli.force) {
+                match load_pure_environment_with(&config, cli.force, &config_path) {
                     Ok(delta) => {
                         if let Err(e) = crate::check::env_delta::check_delta(&delta) {
                             errors.push(e.to_string());
@@ -75,7 +76,7 @@ pub fn run(cli: Cli) -> Result<(), AppError> {
             }
         }
         SubCommand::Export(args) => {
-            let delta = load_pure_environment(cli.force)?;
+            let delta = load_pure_environment(cli.force, &config_path)?;
             let script = match args.shell {
                 crate::cli::SupportedShell::Nu => crate::export::export_nu(&delta),
                 crate::cli::SupportedShell::Bash => crate::export::export_bash(&delta),
@@ -98,7 +99,7 @@ pub fn run(cli: Cli) -> Result<(), AppError> {
             Ok(())
         }
         SubCommand::Env => {
-            let env = load_environment(cli.force)?;
+            let env = load_environment(cli.force, &config_path)?;
             let mut entries = env.vars.into_iter().collect::<Vec<_>>();
             entries.sort_by(|a, b| a.0.cmp(&b.0));
             for (key, value) in entries {
@@ -107,8 +108,8 @@ pub fn run(cli: Cli) -> Result<(), AppError> {
             Ok(())
         }
         SubCommand::Preset(args) => {
-            let config = read_config()?;
-            let delta = load_pure_environment_with(&config, cli.force)?;
+            let config = read_config(&config_path)?;
+            let delta = load_pure_environment_with(&config, cli.force, &config_path)?;
             if delta.pure {
                 log::warn!(
                     "pure mode cannot clear inherited variables in CMake presets; only resolved variables are injected"
@@ -168,8 +169,8 @@ struct LoadedEnvironment {
     pure: bool,
 }
 
-fn load_environment(force: bool) -> Result<LoadedEnvironment, AppError> {
-    let delta = load_pure_environment(force)?;
+fn load_environment(force: bool, config_path: &Path) -> Result<LoadedEnvironment, AppError> {
+    let delta = load_pure_environment(force, config_path)?;
     let pure = delta.pure;
     let base = std::env::vars().collect::<HashMap<_, _>>();
     let mut vars = base.clone();
@@ -182,27 +183,30 @@ fn load_environment(force: bool) -> Result<LoadedEnvironment, AppError> {
     })
 }
 
-fn read_config() -> Result<Config, AppError> {
-    let config_path = Path::new("winch.toml");
+fn read_config(config_path: &Path) -> Result<Config, AppError> {
     if !config_path.exists() {
-        return Err(AppError::NoConfig);
+        return Err(AppError::NoConfig(config_path.to_path_buf()));
     }
     let config_text = std::fs::read_to_string(config_path)?;
     Ok(toml::from_str::<Config>(&config_text)?)
 }
 
-fn load_pure_environment(force: bool) -> Result<crate::env::EnvDelta, AppError> {
-    let config = read_config()?;
-    load_pure_environment_with(&config, force)
+fn load_pure_environment(
+    force: bool,
+    config_path: &Path,
+) -> Result<crate::env::EnvDelta, AppError> {
+    let config = read_config(config_path)?;
+    load_pure_environment_with(&config, force, config_path)
 }
 
 fn load_pure_environment_with(
     config: &Config,
     force: bool,
+    config_path: &Path,
 ) -> Result<crate::env::EnvDelta, AppError> {
-    let config_path = Path::new("winch.toml");
     let hash = cache::hash_file(config_path)?;
-    let cached = cache::read(Path::new(cache::CACHE_PATH));
+    let cache_path = cache::path_for(config_path);
+    let cached = cache::read(&cache_path);
     let hint = cached
         .as_ref()
         .and_then(|cache| cache.msys2_root.as_deref());
@@ -236,7 +240,7 @@ fn load_pure_environment_with(
         delta.append(k, EnvObj::new(v, "user config"));
     }
 
-    let cached = CacheFile {
+    let cache_file = CacheFile {
         version: cache::FORMAT_VERSION,
         hash,
         fingerprint,
@@ -244,7 +248,7 @@ fn load_pure_environment_with(
         msys2_root: plan.msys2.as_ref().map(|msys2| msys2.root.clone()),
         env: delta.clone(),
     };
-    if let Err(e) = cache::write(Path::new(cache::CACHE_PATH), &cached) {
+    if let Err(e) = cache::write(&cache_path, &cache_file) {
         error!("Failed to save cache file: {e}");
     }
 

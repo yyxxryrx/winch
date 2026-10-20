@@ -13,6 +13,9 @@ pub struct Cli {
     /// Do not use cache
     #[arg(short, long)]
     pub force: bool,
+    /// Path to the project configuration
+    #[arg(short, long, default_value = "winch.toml")]
+    pub config: PathBuf,
     #[clap(subcommand)]
     pub command: SubCommand,
 }
