@@ -9,7 +9,19 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const FORMAT_VERSION: u32 = 8;
 pub const MAX_AGE_SECS: u64 = 7 * 24 * 60 * 60;
-pub const CACHE_PATH: &str = ".winch/cache.toml";
+
+pub fn path_for(config_path: &Path) -> PathBuf {
+    let identity = config_path
+        .canonicalize()
+        .unwrap_or_else(|_| config_path.to_path_buf());
+    let mut hasher = sha2::Sha256::new();
+    hasher.update(identity.to_string_lossy().to_ascii_lowercase().as_bytes());
+    let hash = hex::encode(hasher.finalize());
+
+    Path::new(".winch")
+        .join("cache")
+        .join(format!("{}.toml", &hash[..16]))
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CacheFile {
@@ -160,6 +172,15 @@ mod tests {
         assert!(read(&path).is_none());
 
         std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn cache_paths_are_config_specific() {
+        let first = path_for(Path::new("winch.toml"));
+        let second = path_for(Path::new("winch.dev.toml"));
+
+        assert_eq!(first, path_for(Path::new("winch.toml")));
+        assert_ne!(first, second);
     }
 
     #[test]

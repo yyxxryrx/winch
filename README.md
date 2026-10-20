@@ -4,7 +4,7 @@
 >
 > 这是一个个人向的小工具,主要用来解决自己在 Windows 上管理开发环境变量的麻烦,按需迭代。
 
-`winch` 是一个 Windows 上的声明式环境变量管理工具。它读取当前目录的 `winch.toml`,解析 MSVC、vcpkg、JDK、MSYS2
+`winch` 是一个 Windows 上的声明式环境变量管理工具。它读取指定的配置文件(默认 `winch.toml`),解析 MSVC、vcpkg、JDK、MSYS2
 等工具链,把环境变量注入到子进程,或者导出成 shell 脚本。
 
 ## 能做什么
@@ -21,7 +21,8 @@
 - 用 `winch diff` 查看环境变化及每条变化的来源
 - 生成 CMake presets(`winch preset cmake`)
 - 生成配置 JSON Schema(`winch schema`)
-- 把解析结果缓存到 `.winch/cache.toml`,减少重复解析
+- 支持多个配置文件(`-c/--config`)
+- 把解析结果缓存到 `.winch/cache/<hash>.toml`,减少重复解析
 - 导出 bash、PowerShell、Nushell 可用的环境脚本
 
 ## Todo List
@@ -34,6 +35,7 @@
 - [x] Windows SDK 支持
 - [x] `diff`命令生成诊断信息
 - [x] 配置文件 JSON Schema
+- [x] 多配置文件支持
 - [ ] 支持管理配置更多的平台（例如：Ninja、Conan、Python、Nodejs等）
 - [x] `preset`命令生成 **CMake Presets**
 - [ ] `preset`命令生成 **compile_commands.json**
@@ -117,6 +119,21 @@ FOO = "bar"
 
 所有段都是可选的,只写需要的部分即可;但一旦写了某个工具链,它内部的字段需要完整。
 
+### 多配置文件
+
+用 `-c/--config` 指定配置文件,不写时默认使用 `winch.toml`:
+
+```powershell
+winch -c winch.dev.toml check
+winch --config configs/winch.release.toml shell
+winch -c winch.dev.toml preset cmake
+```
+
+不同配置使用独立的缓存和导出文件,CMake preset 的名称也会带上配置名:
+
+- `winch.toml` → `winch-base` / `winch-debug`,导出 `.winch/env.ps1`
+- `winch.dev.toml` → `winch-dev-base` / `winch-dev-debug`,导出 `.winch/env-dev.ps1`
+
 ### MSYS2
 
 启用后会设置 `MSYSTEM`,按类型设置 `MINGW_PACKAGE_PREFIX`,并把实际存在的 `usr/local/bin`、`usr/bin` 和对应环境的 `bin` 加入
@@ -170,7 +187,7 @@ Path = "C:\\other\\bin"
 
 ### 纯净模式
 
-默认情况下,`winch env` / `winch shell` / `winch run` 会在当前进程环境的基础上叠加解析结果。在 `winch.toml` 顶层设置
+默认情况下,`winch env` / `winch shell` / `winch run` 会在当前进程环境的基础上叠加解析结果。在配置文件顶层设置
 `pure = true` 后,这些命令只保留解析出的变量和 `pure_keep` 指定的继承变量:
 
 ```toml
@@ -217,8 +234,11 @@ winch list
 # 打印加载后的完整环境变量(按变量名排序)
 winch env
 
-# 查看应用 winch.toml 后的环境变化及来源
+# 查看应用配置文件后的环境变化及来源
 winch diff
+
+# 使用其它配置文件
+winch -c winch.dev.toml check
 
 # 生成 CMake presets
 winch preset cmake
@@ -248,18 +268,20 @@ winch export --shell bash --output -
 winch --verbose check
 winch --force shell
 winch --no-log env
+winch -c winch.dev.toml check
 ```
 
 - `-v, --verbose`:输出调试日志
 - `-f, --force`:忽略缓存,重新解析环境
+- `-c, --config <PATH>`:指定配置文件,默认 `winch.toml`
 - `--no-log`:不输出日志 (检查失败时仍会打印错误摘要)
 
-`winch env` 默认输出进程继承的完整环境加上 `winch.toml` 的结果,按变量名排序;开启 `pure` 后只输出解析结果和 `pure_keep`
+`winch env` 默认输出进程继承的完整环境加上配置文件的结果,按变量名排序;开启 `pure` 后只输出解析结果和 `pure_keep`
 保留的变量。需要干净输出时配合 `--no-log` 使用。
 
 ### 差异
 
-`winch diff` 比较当前进程环境和应用 `winch.toml` 后的环境,按变量名列出变化,并在每条追加/替换后标注来源:
+`winch diff` 比较当前进程环境和应用配置文件后的环境,按变量名列出变化,并在每条追加/替换后标注来源:
 
 ```text
 Path
@@ -290,20 +312,23 @@ args = ["-NoLogo"]
 
 ### 缓存
 
-- 缓存位于 `.winch/cache.toml`,key 由 `winch.toml` 的 SHA-256 和工具链指纹组成
-- 工具链指纹包含选中的 VS/JDK/vcpkg/MSYS2 路径、版本和关键文件时间戳,工具链升级或移动会自动重建
+- 缓存位于 `.winch/cache/<配置路径 hash>.toml`,不同配置文件互不影响
+- key 由配置文件的 SHA-256 和工具链指纹组成
+- 工具链指纹包含选中的 VS/JDK/vcpkg/MSYS2/Windows SDK 路径、版本和关键文件时间戳,工具链升级或移动会自动重建
 - 缓存最多使用 7 天,过期后自动重建,用于兜底原地升级;需要立即重建时使用 `--force`
-- 修改 `winch.toml`(包括 `[env]`)会自动重建缓存
+- 修改配置文件(包括 `[env]`)会自动重建缓存
 - 缓存里是解析后的绝对路径,属于本机数据,建议把 `/.winch/` 加入项目自己的 `.gitignore`
 - 缓存格式带版本号,格式不匹配时会自动重建
 
 ### 导出
 
-`winch export` 会把当前解析结果写成脚本,默认输出到:
+`winch export` 会把当前解析结果写成脚本。默认配置文件 `winch.toml` 输出到:
 
 - `.winch/env.sh`
 - `.winch/env.ps1`
 - `.winch/env.nu`
+
+使用其它配置文件时,默认文件名会带上配置名,例如 `winch.dev.toml` 输出 `.winch/env-dev.ps1`;也可以用 `-o` 显式指定。
 
 bash 导出会把 Windows 路径转换成 `/c/...` 形式,适合 Git Bash / MSYS2 环境;PowerShell 和 Nushell 使用原生路径。
 
@@ -323,9 +348,11 @@ cmake --build --preset winch-debug
 - `winch-debug` / `winch-release`:继承 `winch-base`,分别设置 `CMAKE_BUILD_TYPE`
 - 对应的 build preset,兼容 Visual Studio 等多配置生成器
 
+如果使用其它配置文件,preset 名称会加上配置名,例如 `winch.dev.toml` 生成 `winch-dev-base`、`winch-dev-debug`;不同配置可以共存在同一个 `CMakeUserPresets.json` 中。
+
 说明:
 
-- 只更新 winch 生成的条目,已有的其它 preset 会保留
+- 只更新当前配置生成的条目,已有的其它 preset 会保留
 - 默认输出 `CMakeUserPresets.json`,里面包含本机路径,建议不要提交
 - 需要 CMake 3.25+
 - CMake presets 的环境只能叠加,不能清空;`pure` 的隔离效果无法通过 preset 表达,`preset` 只注入解析结果
