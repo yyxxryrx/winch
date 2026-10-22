@@ -245,7 +245,7 @@ OS, PROCESSOR_ARCHITECTURE, NUMBER_OF_PROCESSORS
 # 校验配置中的工具链,并检查解析出的 Path 目录
 winch check
 
-# 列出 PATH 中检测到的 clang / gcc / java,以及 MSYS2 和 Visual Studio
+# 列出 PATH 中检测到的 clang / gcc / java / Windows SDK,以及 MSYS2 和 Visual Studio
 winch list
 
 # 打印加载后的完整环境变量(按变量名排序)
@@ -291,10 +291,12 @@ winch -c winch.dev.toml check
 - `-v, --verbose`:输出调试日志
 - `-f, --force`:忽略缓存,重新解析环境
 - `-c, --config <PATH>`:指定配置文件,默认 `winch.toml`
-- `--no-log`:不输出日志 (检查失败时仍会打印错误摘要)
+- `--no-log`:不输出日志 (错误仍会打印到 stderr)
 
 `winch env` 默认输出进程继承的完整环境加上配置文件的结果,按变量名排序;开启 `pure` 后只输出解析结果和 `pure_keep`
 保留的变量。需要干净输出时配合 `--no-log` 使用。
+
+`winch run` 会把子进程的退出码作为 winch 的退出码,方便脚本和 CI 判断结果。
 
 ### 差异
 

@@ -33,12 +33,12 @@ pub enum AppError {
     Json(#[from] serde_json::Error),
 }
 
-pub fn run(cli: Cli) -> Result<(), AppError> {
+pub fn run(cli: Cli) -> Result<i32, AppError> {
     let config_path = cli.config;
     match cli.command {
         SubCommand::List => {
             list();
-            Ok(())
+            Ok(0)
         }
         SubCommand::Shell => {
             let env = load_environment(cli.force, &config_path)?;
@@ -51,7 +51,7 @@ pub fn run(cli: Cli) -> Result<(), AppError> {
         SubCommand::Diff => {
             let env = load_environment(cli.force, &config_path)?;
             crate::diff::print(&env.delta, &env.base, &env.vars);
-            Ok(())
+            Ok(0)
         }
         SubCommand::Check => {
             let config = read_config(&config_path)?;
@@ -70,7 +70,7 @@ pub fn run(cli: Cli) -> Result<(), AppError> {
 
             if errors.is_empty() {
                 println!("{}", "Check successfully completed".bright_green());
-                Ok(())
+                Ok(0)
             } else {
                 Err(AppError::CheckFailed(errors))
             }
@@ -91,12 +91,12 @@ pub fn run(cli: Cli) -> Result<(), AppError> {
                 .unwrap_or_else(|| export_output(&config_path, &args.shell));
             if output.as_os_str() == "-" {
                 print!("{script}");
-                return Ok(());
+                return Ok(0);
             }
             info!("Save to {}", output.display());
             let mut file = std::fs::File::create(output)?;
             file.write_all(script.as_bytes())?;
-            Ok(())
+            Ok(0)
         }
         SubCommand::Env => {
             let env = load_environment(cli.force, &config_path)?;
@@ -105,7 +105,7 @@ pub fn run(cli: Cli) -> Result<(), AppError> {
             for (key, value) in entries {
                 println!("{key}={value}");
             }
-            Ok(())
+            Ok(0)
         }
         SubCommand::Preset(args) => {
             let config = read_config(&config_path)?;
@@ -121,7 +121,7 @@ pub fn run(cli: Cli) -> Result<(), AppError> {
                     info!("Saved presets to {}", args.output.display());
                 }
             }
-            Ok(())
+            Ok(0)
         }
         SubCommand::Schema(args) => {
             let schema = crate::schema::generate()?;
@@ -138,27 +138,24 @@ pub fn run(cli: Cli) -> Result<(), AppError> {
                 }
                 None => print!("{schema}"),
             }
-            Ok(())
+            Ok(0)
         }
     }
 }
 
 pub fn report(err: &AppError) {
-    match err {
-        AppError::CheckFailed(_) => eprintln!("{}", err.to_string().bright_red()),
-        _ => error!("{err}"),
-    }
+    eprintln!("{}", err.to_string().bright_red());
     if let AppError::Toolchain(LoadError::CannotFindTool(ToolType::VSWhere)) = err {
-        println!(
+        eprintln!(
             "{}",
             "Cannot find vswhere, you can use winget or scoop to install it".bright_red()
         );
-        println!(
+        eprintln!(
             "{}",
             " - WinGet: winget install --id Microsoft.VisualStudio.Locator --source winget"
                 .bright_red()
         );
-        println!("{}", " - Scoop: scoop install vswhere".bright_red());
+        eprintln!("{}", " - Scoop: scoop install vswhere".bright_red());
     }
 }
 
@@ -330,24 +327,29 @@ fn list() {
     let _ = msvc::get_all_vs(&vswhere).inspect(|v| println!("MSVC: {v:#?}"));
 }
 
-fn shell(envs: &HashMap<String, String>, pure: bool) -> Result<(), AppError> {
+fn shell(envs: &HashMap<String, String>, pure: bool) -> Result<i32, AppError> {
     let config = user_config::load_config()?.unwrap_or_default();
     debug!("Running shell ... {}", config.shell.program);
     let mut command = Command::new(config.shell.program);
     if pure {
         command.env_clear();
     }
-    command.args(config.shell.args).envs(envs).spawn()?.wait()?;
-    Ok(())
+    let status = command.args(config.shell.args).envs(envs).spawn()?.wait()?;
+    Ok(status.code().unwrap_or(1))
 }
 
-fn run_program(args: &RunArgs, envs: &HashMap<String, String>, pure: bool) -> Result<(), AppError> {
+fn run_program(
+    args: &RunArgs,
+    envs: &HashMap<String, String>,
+    pure: bool,
+) -> Result<i32, AppError> {
     debug!("Will run {} {}", args.program, args.args.join(" "));
     let mut command = Command::new(&args.program);
     if pure {
         command.env_clear();
     }
     let status = command.args(&args.args).envs(envs).spawn()?.wait()?;
+    let code = status.code().unwrap_or(1);
 
     if status.success() {
         eprintln!(
@@ -357,13 +359,8 @@ fn run_program(args: &RunArgs, envs: &HashMap<String, String>, pure: bool) -> Re
     } else {
         eprintln!(
             "{}",
-            format!(
-                "Run {} exit with code {}",
-                args.program,
-                status.code().unwrap_or_default()
-            )
-            .bright_red()
+            format!("Run {} exit with code {code}", args.program).bright_red()
         );
     }
-    Ok(())
+    Ok(code)
 }
