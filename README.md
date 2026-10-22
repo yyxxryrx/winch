@@ -4,7 +4,7 @@
 >
 > 这是一个个人向的小工具,主要用来解决自己在 Windows 上管理开发环境变量的麻烦,按需迭代。
 
-`winch` 是一个 Windows 上的声明式环境变量管理工具。它读取指定的配置文件(默认 `winch.toml`),解析 MSVC、vcpkg、JDK、MSYS2
+`winch` 是一个 Windows 上的声明式环境变量管理工具。它读取指定的配置文件 (默认 `winch.toml`),解析 MSVC、vcpkg、JDK、MSYS2
 等工具链,把环境变量注入到子进程,或者导出成 shell 脚本。
 
 ## 能做什么
@@ -19,11 +19,16 @@
 - 用 `winch shell` / `winch run` 在准备好的环境中启动 shell 或程序
 - 用 `winch env` 打印加载后的完整环境变量
 - 用 `winch diff` 查看环境变化及每条变化的来源
-- 生成 CMake presets(`winch preset cmake`)
-- 生成配置 JSON Schema(`winch schema`)
-- 支持多个配置文件(`-c/--config`)
+- 生成 CMake presets (`winch preset cmake`)
+- 生成配置 JSON Schema (`winch schema`)
+- 支持多个配置文件 (`-c/--config`)
 - 把解析结果缓存到 `.winch/cache/<hash>.toml`,减少重复解析
 - 导出 bash、PowerShell、Nushell 可用的环境脚本
+
+## 不做什么
+
+- 工具链管理与下载
+- 库管理与下载
 
 ## Todo List
 
@@ -37,14 +42,26 @@
 - [x] 配置文件 JSON Schema
 - [x] 多配置文件支持
 - [ ] 支持管理配置更多的平台（例如：Ninja、Conan、Python、Nodejs等）
+- [ ] 支持库的声明和检查
+- [ ] 美化输出
 - [x] `preset`命令生成 **CMake Presets**
-- [ ] `preset`命令生成 **compile_commands.json**
+- [ ] `preset`命令生成 **compile_commands.json** 或 **compile_flags.txt**
 - [ ] `preset`命令生成 **VSCode Tasks**
 - [ ] `preset`命令生成 **VSCode Launch**
 - [ ] `init`命令交互式创建`winch.toml`
+- [ ] `task`命令执行自定义任务
 - [x] 更好的缓存失效机制
 - [ ] 更强的`check`，支持更多检查
 - [ ] 跨平台 (最低优先级)
+
+### 后续可能会加可能不加的东西
+
+> 暂时先不考虑等做完上面的东西再说
+
+- 简单的`build`命令，支持简单的调用工具链构建
+- 生成 **CmakeLists.txt**
+- 生成 **Ninja build file**
+- 联动 **Scoop** 或 **Chocolatey** 等给出安装建议，但不执行安装
 
 ## 获取
 
@@ -102,20 +119,20 @@ FOO = "bar"
 
 字段说明:
 
-| 字段                      | 说明                                                                                  |
-|---------------------------|---------------------------------------------------------------------------------------|
-| `pure`                    | 是否清空继承的环境变量,只保留解析结果,默认 `false`                                    |
-| `pure_keep`               | 纯净模式下保留的继承变量数组;不写时用内置白名单,`[]` 表示不保留                       |
-| `toolchain.msvc.version`  | Visual Studio 版本,最多 4 段。省略的段按通配处理,例如 `17` 匹配任意 `17.x`            |
-| `toolchain.msvc.platform` | 传给 `vcvarsall.bat` 的平台,如 `x64`、`x86`、`arm64`                                  |
-| `toolchain.msys2.enable`  | 是否启用 MSYS2 环境,默认 `false`                                                      |
-| `toolchain.msys2.type`    | MSYS2 环境类型:`ucrt64`(默认)、`mingw64`、`mingw32`、`clang64`、`clangarm64`、`msys2` |
-| `lib.windows_sdk.version` | Windows SDK 的 semver 要求(如 `10.0`)或精确的 4 段版本(如 `10.0.26100.0`)        |
-| `lib.windows_sdk.platform` | SDK 平台:`x64`(默认)、`x86`、`arm64`                                              |
-| `toolchain.java`          | JDK 的 semver 版本要求,如 `17`、`>=17, <21`                                           |
-| `dev.vcpkg.enable`        | 是否启用 vcpkg,默认 `false`                                                           |
-| `dev.vcpkg.triplet`       | vcpkg triplet,如 `x64-windows`                                                        |
-| `env`                     | 自定义环境变量,键和值都必须是字符串;`env.prepend` / `env.append` 用于在现有值首尾追加 |
+| 字段                       | 说明                                                                                  |
+|----------------------------|---------------------------------------------------------------------------------------|
+| `pure`                     | 是否清空继承的环境变量,只保留解析结果,默认 `false`                                    |
+| `pure_keep`                | 纯净模式下保留的继承变量数组;不写时用内置白名单,`[]` 表示不保留                       |
+| `toolchain.msvc.version`   | Visual Studio 版本,最多 4 段。省略的段按通配处理,例如 `17` 匹配任意 `17.x`            |
+| `toolchain.msvc.platform`  | 传给 `vcvarsall.bat` 的平台,如 `x64`、`x86`、`arm64`                                  |
+| `toolchain.msys2.enable`   | 是否启用 MSYS2 环境,默认 `false`                                                      |
+| `toolchain.msys2.type`     | MSYS2 环境类型:`ucrt64`(默认)、`mingw64`、`mingw32`、`clang64`、`clangarm64`、`msys2` |
+| `lib.windows_sdk.version`  | Windows SDK 的 semver 要求(如 `10.0`)或精确的 4 段版本(如 `10.0.26100.0`)             |
+| `lib.windows_sdk.platform` | SDK 平台:`x64`(默认)、`x86`、`arm64`                                                  |
+| `toolchain.java`           | JDK 的 semver 版本要求,如 `17`、`>=17, <21`                                           |
+| `dev.vcpkg.enable`         | 是否启用 vcpkg,默认 `false`                                                           |
+| `dev.vcpkg.triplet`        | vcpkg triplet,如 `x64-windows`                                                        |
+| `env`                      | 自定义环境变量,键和值都必须是字符串;`env.prepend` / `env.append` 用于在现有值首尾追加 |
 
 所有段都是可选的,只写需要的部分即可;但一旦写了某个工具链,它内部的字段需要完整。
 
@@ -155,7 +172,7 @@ version = "10.0.26100"
 platform = "x64"
 ```
 
-- `version` 支持 semver 要求(如 `10.0`)或精确的 4 段版本(如 `10.0.26100.0`)
+- `version` 支持 semver 要求 (如 `10.0`)或精确的 4 段版本 (如 `10.0.26100.0`)
 - `platform` 可选 `x64`(默认)、`x86`、`arm64`
 - SDK 从注册表和 `Include` 目录中发现,只列出 `Include` / `Lib` / `bin` 都存在且完整的版本
 - `winch check` 会验证选中的 SDK 目录是否存在
@@ -200,7 +217,7 @@ FOO = "bar"
 
 `pure_keep` 的规则:
 
-- 不写时使用内置默认白名单(见下)
+- 不写时使用内置默认白名单 (见下)
 - 写 `pure_keep = []` 表示一个继承变量都不保留
 - 变量名不区分大小写
 - `Path` 不在默认白名单里;需要继承调用者的 `PATH` 时自己加进去
@@ -316,7 +333,7 @@ args = ["-NoLogo"]
 - key 由配置文件的 SHA-256 和工具链指纹组成
 - 工具链指纹包含选中的 VS/JDK/vcpkg/MSYS2/Windows SDK 路径、版本和关键文件时间戳,工具链升级或移动会自动重建
 - 缓存最多使用 7 天,过期后自动重建,用于兜底原地升级;需要立即重建时使用 `--force`
-- 修改配置文件(包括 `[env]`)会自动重建缓存
+- 修改配置文件 (包括 `[env]`)会自动重建缓存
 - 缓存里是解析后的绝对路径,属于本机数据,建议把 `/.winch/` 加入项目自己的 `.gitignore`
 - 缓存格式带版本号,格式不匹配时会自动重建
 
@@ -348,7 +365,8 @@ cmake --build --preset winch-debug
 - `winch-debug` / `winch-release`:继承 `winch-base`,分别设置 `CMAKE_BUILD_TYPE`
 - 对应的 build preset,兼容 Visual Studio 等多配置生成器
 
-如果使用其它配置文件,preset 名称会加上配置名,例如 `winch.dev.toml` 生成 `winch-dev-base`、`winch-dev-debug`;不同配置可以共存在同一个 `CMakeUserPresets.json` 中。
+如果使用其它配置文件,preset 名称会加上配置名,例如 `winch.dev.toml` 生成 `winch-dev-base`、`winch-dev-debug`;不同配置可以共存在同一个
+`CMakeUserPresets.json` 中。
 
 说明:
 
