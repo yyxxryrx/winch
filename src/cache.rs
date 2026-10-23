@@ -1,5 +1,5 @@
 use crate::env::EnvDelta;
-use log::debug;
+use crate::output;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use std::fs::File;
@@ -74,7 +74,7 @@ pub fn read(path: &Path) -> Option<CacheFile> {
     match toml::from_str(&text) {
         Ok(cache) => Some(cache),
         Err(e) => {
-            debug!("Ignoring invalid cache file: {e}");
+            output::debug(format!("ignoring invalid cache file: {e}"));
             None
         }
     }

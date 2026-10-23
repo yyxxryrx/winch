@@ -1,8 +1,8 @@
 use super::Msys2Plan;
 use crate::env::EnvDelta;
+use crate::output;
 use crate::project_config::Msys2;
 use crate::toolchain::{LoadError, LoadResult};
-use log::info;
 use std::path::{Path, PathBuf};
 
 fn find_root() -> LoadResult<PathBuf> {
@@ -27,7 +27,7 @@ pub(super) fn plan(config: &Msys2, hint: Option<&Path>) -> LoadResult<Msys2Plan>
 }
 
 pub(super) fn apply(plan: &Msys2Plan, delta: &mut EnvDelta) -> LoadResult<()> {
-    info!("Load msys2");
+    output::loaded("MSYS2");
     let root = &plan.root;
 
     delta.set("MSYSTEM", env(plan.shell_type.m_system()));

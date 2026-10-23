@@ -2,8 +2,8 @@ use super::VcpkgPlan;
 use super::error::{LoadError, LoadResult};
 use crate::env::{EnvDelta, EnvObj};
 use crate::find;
+use crate::output;
 use crate::project_config::Vcpkg;
-use log::{debug, info};
 use std::path::PathBuf;
 
 fn find_root() -> LoadResult<PathBuf> {
@@ -31,8 +31,8 @@ pub(super) fn plan(config: &Vcpkg) -> LoadResult<VcpkgPlan> {
 
 pub(super) fn apply(plan: &VcpkgPlan, delta: &mut EnvDelta) -> LoadResult<()> {
     let root = &plan.root;
-    debug!("Find vcpkg root successfully ... {}", root.display());
-    info!("Load VCPKG");
+    output::debug(format!("found vcpkg root at {}", root.display()));
+    output::loaded("vcpkg");
 
     let installed = root.join("installed").join(&plan.triplet);
     delta.set("VCPKG_ROOT", env(root.to_string_lossy()));

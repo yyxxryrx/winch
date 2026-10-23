@@ -4,12 +4,11 @@ use crate::env::{EnvDelta, EnvObj};
 use crate::find::{self, Tool};
 use crate::msvc;
 use crate::msys2;
+use crate::output;
 use crate::project_config::Config;
 use crate::toolchain::{LoadError, ToolType};
 use crate::user_config;
 use crate::version;
-use colored::Colorize;
-use log::{debug, error, info};
 use std::collections::HashMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -69,7 +68,7 @@ pub fn run(cli: Cli) -> Result<i32, AppError> {
             }
 
             if errors.is_empty() {
-                println!("{}", "Check successfully completed".bright_green());
+                output::finished("check successfully completed");
                 Ok(0)
             } else {
                 Err(AppError::CheckFailed(errors))
@@ -86,16 +85,16 @@ pub fn run(cli: Cli) -> Result<i32, AppError> {
             if !std::fs::exists(dir)? {
                 std::fs::create_dir(dir)?;
             }
-            let output = args
+            let output_path = args
                 .output
                 .unwrap_or_else(|| export_output(&config_path, &args.shell));
-            if output.as_os_str() == "-" {
+            if output_path.as_os_str() == "-" {
                 print!("{script}");
                 return Ok(0);
             }
-            info!("Save to {}", output.display());
-            let mut file = std::fs::File::create(output)?;
+            let mut file = std::fs::File::create(&output_path)?;
             file.write_all(script.as_bytes())?;
+            output::saved(format!("export to {}", output_path.display()));
             Ok(0)
         }
         SubCommand::Env => {
@@ -111,14 +110,14 @@ pub fn run(cli: Cli) -> Result<i32, AppError> {
             let config = read_config(&config_path)?;
             let delta = load_pure_environment_with(&config, cli.force, &config_path)?;
             if delta.pure {
-                log::warn!(
-                    "pure mode cannot clear inherited variables in CMake presets; only resolved variables are injected"
+                output::warning(
+                    "pure mode cannot clear inherited variables in CMake presets; only resolved variables are injected",
                 );
             }
             match args.target {
                 crate::cli::PresetTarget::Cmake(args) => {
                     crate::presets::cmake::generate(&delta, &config, &config_path, &args.output)?;
-                    info!("Saved presets to {}", args.output.display());
+                    output::saved(format!("presets to {}", args.output.display()));
                 }
             }
             Ok(0)
@@ -134,7 +133,7 @@ pub fn run(cli: Cli) -> Result<i32, AppError> {
                         std::fs::create_dir_all(parent)?;
                     }
                     std::fs::write(&path, schema)?;
-                    info!("Saved schema to {}", path.display());
+                    output::saved(format!("schema to {}", path.display()));
                 }
                 None => print!("{schema}"),
             }
@@ -144,18 +143,11 @@ pub fn run(cli: Cli) -> Result<i32, AppError> {
 }
 
 pub fn report(err: &AppError) {
-    eprintln!("{}", err.to_string().bright_red());
+    output::error(err);
     if let AppError::Toolchain(LoadError::CannotFindTool(ToolType::VSWhere)) = err {
-        eprintln!(
-            "{}",
-            "Cannot find vswhere, you can use winget or scoop to install it".bright_red()
-        );
-        eprintln!(
-            "{}",
-            " - WinGet: winget install --id Microsoft.VisualStudio.Locator --source winget"
-                .bright_red()
-        );
-        eprintln!("{}", " - Scoop: scoop install vswhere".bright_red());
+        eprintln!("  Cannot find vswhere; install it with winget or scoop:");
+        eprintln!("  winget install --id Microsoft.VisualStudio.Locator --source winget");
+        eprintln!("  scoop install vswhere");
     }
 }
 
@@ -212,11 +204,11 @@ fn load_pure_environment_with(
 
     if !force && let Some(cached) = cached {
         if cached.matches(&hash, &fingerprint, cache::now()) {
-            debug!("Load from cache file");
-            info!("Load env from cache file successfully");
+            output::debug("Cache matched");
+            output::cached("environment");
             return Ok(cached.env);
         }
-        debug!("Cache not matched, will reload env");
+        output::debug("Cache not matched, reloading environment");
     }
 
     let mut delta = crate::toolchain::apply(&plan)?;
@@ -246,7 +238,7 @@ fn load_pure_environment_with(
         env: delta.clone(),
     };
     if let Err(e) = cache::write(&cache_path, &cache_file) {
-        error!("Failed to save cache file: {e}");
+        output::warning(format!("failed to save cache file: {e}"));
     }
 
     Ok(delta)
@@ -329,7 +321,7 @@ fn list() {
 
 fn shell(envs: &HashMap<String, String>, pure: bool) -> Result<i32, AppError> {
     let config = user_config::load_config()?.unwrap_or_default();
-    debug!("Running shell ... {}", config.shell.program);
+    output::debug(format!("running shell {}", config.shell.program));
     let mut command = Command::new(config.shell.program);
     if pure {
         command.env_clear();
@@ -343,7 +335,7 @@ fn run_program(
     envs: &HashMap<String, String>,
     pure: bool,
 ) -> Result<i32, AppError> {
-    debug!("Will run {} {}", args.program, args.args.join(" "));
+    output::debug(format!("running {} {}", args.program, args.args.join(" ")));
     let mut command = Command::new(&args.program);
     if pure {
         command.env_clear();
@@ -352,15 +344,9 @@ fn run_program(
     let code = status.code().unwrap_or(1);
 
     if status.success() {
-        eprintln!(
-            "{}",
-            format!("Run {} successfully", args.program).bright_green()
-        );
+        output::finished(format!("run {} successfully", args.program));
     } else {
-        eprintln!(
-            "{}",
-            format!("Run {} exit with code {code}", args.program).bright_red()
-        );
+        output::error(format!("run {} exited with code {code}", args.program));
     }
     Ok(code)
 }

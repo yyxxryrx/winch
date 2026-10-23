@@ -284,17 +284,19 @@ winch export --shell bash --output -
 ```powershell
 winch --verbose check
 winch --force shell
-winch --no-log env
+winch --quiet env
 winch -c winch.dev.toml check
 ```
 
-- `-v, --verbose`:输出调试日志
+- `-v, --verbose`:输出调试信息
 - `-f, --force`:忽略缓存,重新解析环境
 - `-c, --config <PATH>`:指定配置文件,默认 `winch.toml`
-- `--no-log`:不输出日志 (错误仍会打印到 stderr)
+- `-q, --quiet`:不输出状态信息 (错误仍会打印到 stderr;`--no-log` 仍兼容)
+
+状态信息使用 cargo 风格的着色标签 (`Loaded`、`Found`、`Saved`、`Cached`、`Warning`、`Error`),默认输出到 stderr;`env`、`diff`、`schema` 等数据仍输出到 stdout,方便管道处理。
 
 `winch env` 默认输出进程继承的完整环境加上配置文件的结果,按变量名排序;开启 `pure` 后只输出解析结果和 `pure_keep`
-保留的变量。需要干净输出时配合 `--no-log` 使用。
+保留的变量。需要干净输出时配合 `--quiet` 使用。
 
 `winch run` 会把子进程的退出码作为 winch 的退出码,方便脚本和 CI 判断结果。
 
@@ -314,7 +316,7 @@ FOO
 
 - 新增或 prepend/append 的值显示为 `+`;`[env]` 整体替换会同时显示 `-` 旧值和 `+` 新值
 - 来源包括 `msvc`、`vcpkg`、`java`、`msys2` 和 `user config`
-- 开启 `pure` 时,被清除的继承变量只汇总数量;使用 `--verbose` 可以在日志中查看具体变量名
+- 开启 `pure` 时,被清除的继承变量只汇总数量;使用 `--verbose` 可以在状态输出中查看具体变量名
 - 和 `env` / `shell` / `run` 一样使用缓存,需要重新解析时加 `--force`
 
 ### 用户配置
@@ -410,7 +412,7 @@ schema 是从代码生成的,不要手动修改;CI 会检查仓库里的文件�
 
 ```
 src/
-  main.rs        入口,日志与退出码
+  main.rs        入口,状态输出与退出码
   cli.rs         命令行参数
   app.rs         命令调度与环境加载
   env.rs         环境变量增量模型(set / prepend / append,含来源信息)

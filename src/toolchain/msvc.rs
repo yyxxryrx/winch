@@ -2,13 +2,13 @@ use super::MsvcPlan;
 use super::error::{LoadError, LoadResult, ToolType};
 use crate::env::{EnvDelta, EnvObj};
 use crate::msvc;
+use crate::output;
 use crate::project_config::Msvc;
-use log::{debug, info};
 
 fn find_vs(config: &Msvc) -> LoadResult<msvc::VS> {
     let version = config.version.parse::<msvc::VSVersion>()?;
     let vswhere = msvc::try_get_vswhere().ok_or(LoadError::CannotFindTool(ToolType::VSWhere))?;
-    debug!("Find vswhere successfully ... {}", vswhere.display());
+    output::debug(format!("found vswhere at {}", vswhere.display()));
 
     msvc::get_all_vs(&vswhere)?
         .into_iter()
@@ -28,14 +28,14 @@ pub(super) fn plan(config: &Msvc) -> LoadResult<MsvcPlan> {
 }
 
 pub(super) fn apply(plan: &MsvcPlan, delta: &mut EnvDelta) -> LoadResult<()> {
-    debug!("Preparing the MSVC environment");
-    debug!(
-        "Find vs successfully ... {}",
+    output::debug("preparing the MSVC environment");
+    output::debug(format!(
+        "found Visual Studio at {}",
         plan.vs.installed_path.display()
-    );
+    ));
 
     let vars = msvc::get_msvc_env(&plan.vs.installed_path, &plan.platform)?;
-    info!("Load msvc {}", plan.vs.version);
+    output::loaded(format!("MSVC {}", plan.vs.version));
 
     const PREPEND_VARS: [&str; 5] = ["Path", "LIB", "INCLUDE", "LIBPATH", "EXTERNAL_INCLUDE"];
     for (key, value) in vars {

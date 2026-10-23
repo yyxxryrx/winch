@@ -4,10 +4,10 @@ use std::path::PathBuf;
 /// A declarative environment manager
 #[derive(Debug, Parser)]
 pub struct Cli {
-    /// Disable log output
-    #[clap(long)]
+    /// Disable status output
+    #[arg(short = 'q', long = "quiet", alias = "no-log")]
     pub no_log: bool,
-    /// Show debug log
+    /// Show debug output
     #[arg(short, long)]
     pub verbose: bool,
     /// Do not use cache
