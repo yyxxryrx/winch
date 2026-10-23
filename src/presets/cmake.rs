@@ -51,7 +51,7 @@ pub enum GenerateError {
     InvalidArray(&'static str),
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct CmakeMinimumRequired {
     major: u32,
@@ -301,17 +301,30 @@ fn merge(
         .unwrap_or(u64::from(PRESETS_VERSION));
     object.insert("version".to_string(), Value::from(version));
 
-    if !object.contains_key("cmakeMinimumRequired") {
-        object.insert(
-            "cmakeMinimumRequired".to_string(),
-            serde_json::to_value(CmakeMinimumRequired::default())?,
-        );
+    let default_minimum = CmakeMinimumRequired::default();
+    match minimum_required(object) {
+        Some(minimum) if minimum >= default_minimum => {}
+        _ => {
+            object.insert(
+                "cmakeMinimumRequired".to_string(),
+                serde_json::to_value(default_minimum)?,
+            );
+        }
     }
 
     replace_winch_presets(object, "configurePresets", &generated.configure, prefix)?;
     replace_winch_presets(object, "buildPresets", &generated.build, prefix)?;
 
     Ok(serde_json::to_string_pretty(&root)? + "\n")
+}
+
+fn minimum_required(object: &Map<String, Value>) -> Option<CmakeMinimumRequired> {
+    let value = object.get("cmakeMinimumRequired")?.as_object()?;
+    Some(CmakeMinimumRequired {
+        major: value.get("major")?.as_u64()?.try_into().ok()?,
+        minor: value.get("minor")?.as_u64()?.try_into().ok()?,
+        patch: value.get("patch")?.as_u64()?.try_into().ok()?,
+    })
 }
 
 fn replace_winch_presets<T: Serialize>(
@@ -494,6 +507,38 @@ mod tests {
                 .count(),
             1
         );
+    }
+
+    #[test]
+    fn merge_raises_outdated_cmake_minimum_required() {
+        let existing = r#"{
+            "version": 3,
+            "cmakeMinimumRequired": {"major": 3, "minor": 20, "patch": 0},
+            "configurePresets": []
+        }"#;
+        let generated = generate_presets(&EnvDelta::default(), &config(), "winch");
+        let merged = merge(existing, &generated, "winch").unwrap();
+        let value: Value = serde_json::from_str(&merged).unwrap();
+
+        assert_eq!(value["cmakeMinimumRequired"]["major"], 3);
+        assert_eq!(value["cmakeMinimumRequired"]["minor"], 25);
+        assert_eq!(value["cmakeMinimumRequired"]["patch"], 0);
+    }
+
+    #[test]
+    fn merge_keeps_newer_cmake_minimum_required() {
+        let existing = r#"{
+            "version": 3,
+            "cmakeMinimumRequired": {"major": 4, "minor": 0, "patch": 0},
+            "configurePresets": []
+        }"#;
+        let generated = generate_presets(&EnvDelta::default(), &config(), "winch");
+        let merged = merge(existing, &generated, "winch").unwrap();
+        let value: Value = serde_json::from_str(&merged).unwrap();
+
+        assert_eq!(value["cmakeMinimumRequired"]["major"], 4);
+        assert_eq!(value["cmakeMinimumRequired"]["minor"], 0);
+        assert_eq!(value["cmakeMinimumRequired"]["patch"], 0);
     }
 
     #[test]

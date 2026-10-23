@@ -149,7 +149,7 @@ pub fn export_nu(env_delta: &EnvDelta) -> String {
             ));
             continue;
         }
-        let values = env_to_string(value.iter().rev());
+        let values = env_to_string(value.iter());
         nu.push_str(&format!(
             "$env.\"{key}\" = $\"($env | get -o \"{key}\");{}\"\n",
             values.escape_nu()
@@ -205,6 +205,19 @@ mod tests {
         let output = export_powershell(&sample_delta());
         assert!(output.contains("${env:Path} = \"C:/third;C:/first;C:/second;${env:Path}\""));
         assert!(output.contains("${env:LIB} = \"C:/libB;C:/libA;${env:LIB}\""));
+    }
+
+    #[test]
+    fn nu_non_path_prepend_and_append_keep_order() {
+        let mut delta = EnvDelta::default();
+        delta.prepend("LIB", EnvObj::new("first", "test"));
+        delta.prepend("LIB", EnvObj::new("second", "test"));
+        delta.append("FLAGS", EnvObj::new("a", "test"));
+        delta.append("FLAGS", EnvObj::new("b", "test"));
+
+        let output = export_nu(&delta);
+        assert!(output.contains("$env.\"LIB\" = $\"second;first;($env | get -o \"LIB\")\""));
+        assert!(output.contains("$env.\"FLAGS\" = $\"($env | get -o \"FLAGS\");a;b\""));
     }
 
     #[test]

@@ -17,9 +17,9 @@ mod version;
 mod winapi;
 
 use clap::Parser;
-use std::process::ExitCode;
+use std::io::Write;
 
-fn main() -> ExitCode {
+fn main() {
     let cli = cli::Cli::parse();
     if !cli.no_log {
         env_logger::Builder::new()
@@ -32,11 +32,13 @@ fn main() -> ExitCode {
             .init();
     }
 
-    match app::run(cli) {
-        Ok(()) => ExitCode::SUCCESS,
+    let code = match app::run(cli) {
+        Ok(code) => code,
         Err(e) => {
             app::report(&e);
-            ExitCode::FAILURE
+            1
         }
-    }
+    };
+    let _ = std::io::stdout().flush();
+    std::process::exit(code);
 }
