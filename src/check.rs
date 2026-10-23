@@ -1,6 +1,4 @@
 pub mod config {
-    use log::info;
-
     pub fn config_check(config: &crate::project_config::Config) -> Vec<String> {
         let mut errors = Vec::new();
 
@@ -8,14 +6,14 @@ pub mod config {
             && msys2.enable
         {
             match crate::toolchain::msys2::check() {
-                Ok(msys2) => info!("msys2 root found ... {}", msys2.display()),
+                Ok(msys2) => crate::output::found(format!("MSYS2 at {}", msys2.display())),
                 Err(e) => errors.push(format!("msys2: {e}")),
             }
         }
 
         if let Some(msvc) = config.toolchain.as_ref().and_then(|t| t.msvc.as_ref()) {
             match crate::toolchain::msvc::check(msvc) {
-                Ok(vs) => info!("msvc found ... {}", vs.installed_path.display()),
+                Ok(vs) => crate::output::found(format!("MSVC at {}", vs.installed_path.display())),
                 Err(e) => errors.push(format!("msvc: {e}")),
             }
         }
@@ -24,25 +22,25 @@ pub mod config {
             && vcpkg.enable
         {
             match crate::toolchain::vcpkg::check(vcpkg) {
-                Ok(()) => info!("vcpkg found"),
+                Ok(()) => crate::output::found("vcpkg"),
                 Err(e) => errors.push(format!("vcpkg: {e}")),
             }
         }
 
         if let Some(java) = config.toolchain.as_ref().and_then(|t| t.java.as_ref()) {
             match crate::toolchain::java::check(java) {
-                Ok(tool) => info!("java found ... {}", tool.path.display()),
+                Ok(tool) => crate::output::found(format!("JDK at {}", tool.path.display())),
                 Err(e) => errors.push(format!("java: {e}")),
             }
         }
 
         if let Some(windows_sdk) = config.lib.windows_sdk.as_ref() {
             match crate::toolchain::lib::windows_sdk::check(windows_sdk) {
-                Ok(tool) => info!(
-                    "windows SDK {} found ... {}",
+                Ok(tool) => crate::output::found(format!(
+                    "Windows SDK {} at {}",
                     tool.version_text(),
                     tool.path.display()
-                ),
+                )),
                 Err(e) => errors.push(format!("windows_sdk: {e}")),
             }
         }

@@ -1,5 +1,4 @@
 use crate::env::EnvDelta;
-use log::debug;
 use std::collections::HashMap;
 
 pub fn print(delta: &EnvDelta, before: &HashMap<String, String>, after: &HashMap<String, String>) {
@@ -59,7 +58,7 @@ pub fn render(
         removed.sort_unstable();
         if !removed.is_empty() {
             for key in &removed {
-                debug!("pure mode removes {key}");
+                crate::output::debug(format!("pure mode removes {key}"));
             }
             output.push_str(&format!(
                 "pure mode: {} inherited variable(s) removed\n\n",

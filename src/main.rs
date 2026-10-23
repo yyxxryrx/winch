@@ -8,6 +8,7 @@ mod export;
 mod find;
 mod msvc;
 mod msys2;
+mod output;
 mod presets;
 mod project_config;
 mod schema;
@@ -21,16 +22,7 @@ use std::io::Write;
 
 fn main() {
     let cli = cli::Cli::parse();
-    if !cli.no_log {
-        env_logger::Builder::new()
-            .filter_level(if cli.verbose {
-                log::LevelFilter::Debug
-            } else {
-                log::LevelFilter::Info
-            })
-            .parse_default_env()
-            .init();
-    }
+    output::init(cli.verbose, cli.no_log);
 
     let code = match app::run(cli) {
         Ok(code) => code,

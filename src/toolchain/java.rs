@@ -2,7 +2,7 @@ use super::JavaPlan;
 use super::error::{LoadError, LoadResult};
 use crate::env::EnvDelta;
 use crate::find;
-use log::{debug, info};
+use crate::output;
 
 fn find_jdk(requirement: &str) -> LoadResult<find::Tool> {
     let version = semver::VersionReq::parse(requirement)?;
@@ -28,7 +28,7 @@ pub(super) fn plan(requirement: &str) -> LoadResult<JavaPlan> {
 
 pub(super) fn apply(plan: &JavaPlan, delta: &mut EnvDelta) -> LoadResult<()> {
     let jdk = &plan.tool;
-    debug!("Select java ... {}", jdk.path.display());
+    output::debug(format!("selected Java at {}", jdk.path.display()));
 
     let bin = jdk
         .path
@@ -37,9 +37,9 @@ pub(super) fn apply(plan: &JavaPlan, delta: &mut EnvDelta) -> LoadResult<()> {
     let java_home = bin
         .parent()
         .ok_or_else(|| LoadError::GetFailed("JAVA_HOME".to_string()))?;
-    debug!("Get JAVA_HOME ... {}", java_home.display());
+    output::debug(format!("JAVA_HOME is {}", java_home.display()));
 
-    info!("Load java");
+    output::loaded("Java");
     delta.set("JAVA_HOME", env(java_home.to_string_lossy()));
     delta.prepend("Path", env(bin.to_string_lossy()));
     Ok(())
